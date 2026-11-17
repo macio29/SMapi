@@ -1,0 +1,433 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>ShootMania Server &amp; Channel Tracker — ManiaPlanet API Parser</title>
+  <meta name="description" content="Lightweight, fast ManiaPlanet API parser displaying live ShootMania player counts, online servers, hourly Channels rotation, and online players." />
+  <link rel="stylesheet" href="styles.css" />
+</head>
+<body>
+
+  <!-- ====================================================================
+       TOP HEADER BAR
+       ==================================================================== -->
+  <header class="site-header">
+    <div class="container header-inner">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SM</div>
+        <div class="brand-text">
+          <div class="brand-title">
+            ShootMania Tracker
+            <span class="branch-pill">Storm Branch Only</span>
+          </div>
+          <div class="brand-subtitle">ManiaPlanet API Server, Channel &amp; Player Parser</div>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <button type="button" id="status-pill-btn" class="api-status-badge" title="Click to configure ManiaPlanet API or paste JSON">
+          <span id="status-dot" class="status-dot"></span>
+          <span id="status-text">ShootMania Live Sync</span>
+        </button>
+
+        <button type="button" id="btn-refresh" class="btn" title="Refresh server &amp; player counts">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12a9 9 0 0 0-9-9 9.75 9.75 0 0 0-6.74 2.74L3 8" />
+            <path d="M3 3v5h5" />
+            <path d="M3 12a9 9 0 0 0 9 9 9.75 9.75 0 0 0 6.74-2.74L21 16" />
+            <path d="M16 16h5v5" />
+          </svg>
+          <span>Refresh</span>
+        </button>
+
+        <button type="button" id="btn-api-settings" class="btn" title="API Endpoint &amp; Raw JSON Parser">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="12" cy="12" r="3" />
+            <path d="M19.4 15a1.65 1.65 0 0 0 .33 1.82l.06.06a2 2 0 0 1-2.83 2.83l-.06-.06a1.65 1.65 0 0 0-1.82-.33 1.65 1.65 0 0 0-1 1.51V21a2 2 0 0 1-4 0v-.09A1.65 1.65 0 0 0 9 19.4a1.65 1.65 0 0 0-1.82.33l-.06.06a2 2 0 0 1-2.83-2.83l.06-.06a1.65 1.65 0 0 0 .33-1.82 1.65 1.65 0 0 0-1.51-1H3a2 2 0 0 1 0-4h.09A1.65 1.65 0 0 0 4.6 9a1.65 1.65 0 0 0-.33-1.82l-.06-.06a2 2 0 0 1 2.83-2.83l.06.06a1.65 1.65 0 0 0 1.82.33H9a1.65 1.65 0 0 0 1-1.51V3a2 2 0 0 1 4 0v.09a1.65 1.65 0 0 0 1 1.51 1.65 1.65 0 0 0 1.82-.33l.06-.06a2 2 0 0 1 2.83 2.83l-.06.06a1.65 1.65 0 0 0-.33 1.82V9a1.65 1.65 0 0 0 1.51 1H21a2 2 0 0 1 0 4h-.09a1.65 1.65 0 0 0-1.51 1z" />
+          </svg>
+          <span>API Source</span>
+        </button>
+
+        <button type="button" id="btn-theme-toggle" class="btn" aria-label="Toggle Light and Dark theme">
+          <svg id="icon-moon" class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+          <svg id="icon-sun" class="icon-svg" viewBox="0 0 24 24" aria-hidden="true" style="display:none;">
+            <circle cx="12" cy="12" r="5" />
+            <line x1="12" y1="1" x2="12" y2="3" />
+            <line x1="12" y1="21" x2="12" y2="23" />
+            <line x1="4.22" y1="4.22" x2="5.64" y2="5.64" />
+            <line x1="18.36" y1="18.36" x2="19.78" y2="19.78" />
+            <line x1="1" y1="12" x2="3" y2="12" />
+            <line x1="21" y1="12" x2="23" y2="12" />
+            <line x1="4.22" y1="19.78" x2="5.64" y2="18.36" />
+            <line x1="18.36" y1="5.64" x2="19.78" y2="4.22" />
+          </svg>
+          <span id="theme-toggle-label">Dark</span>
+        </button>
+      </div>
+    </div>
+  </header>
+
+  <!-- ====================================================================
+       MAIN CONTENT
+       ==================================================================== -->
+  <main class="container" style="padding-bottom: 2.5rem;">
+
+    <!-- 1. TOP KPI SUMMARY STRIP -->
+    <section class="summary-strip" aria-label="ShootMania Live Statistics">
+      <div class="stat-card">
+        <div class="stat-label">
+          <span>Players Online</span>
+          <span class="status-dot"></span>
+        </div>
+        <div id="kpi-total-players" class="stat-value">0</div>
+        <div id="kpi-total-specs" class="stat-meta">Active in ShootMania</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span>Online Servers</span>
+        </div>
+        <div id="kpi-online-servers" class="stat-value">0 / 0</div>
+        <div id="kpi-servers-sub" class="stat-meta">Storm environment only</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span>Top Active Mode</span>
+        </div>
+        <div id="kpi-top-mode" class="stat-value" style="font-size:1.25rem;">—</div>
+        <div id="kpi-top-mode-sub" class="stat-meta">Most populated gamemode</div>
+      </div>
+
+      <div class="stat-card">
+        <div class="stat-label">
+          <span>Channel Rotation</span>
+        </div>
+        <div id="kpi-channel-timer" class="stat-value mono">00m 00s</div>
+        <div id="kpi-channel-sub" class="stat-meta">Changes every hour</div>
+      </div>
+    </section>
+
+    <!-- 2. HIGHLIGHTED SHOOTMANIA CHANNELS SERVER (HOURLY ROTATION) -->
+    <section class="channel-spotlight" aria-label="ShootMania Live Channels Server">
+      <div class="channel-header">
+        <div>
+          <div class="channel-badge-row">
+            <span class="live-indicator">
+              <span class="live-pulse"></span>
+              ShootMania Live Channel
+            </span>
+            <span id="channel-clean-mode" class="channel-tag">Siege</span>
+            <span id="channel-window-utc" class="mono" style="font-size:0.75rem;color:var(--text-muted);">00:00 – 01:00 UTC</span>
+          </div>
+          <h1 id="channel-program-name" class="channel-program-title">SIEGE EVERYTHING ALLOWED</h1>
+          <div class="channel-program-sub">
+            <span id="channel-clean-title" style="font-weight:600;">Title Pack: Siege</span>
+            <span>•</span>
+            <span id="channel-author">By Λtría ɀıצx</span>
+            <span>•</span>
+            <span id="channel-map">Map: Siege - Fortress Valley</span>
+            <span>•</span>
+            <span id="channel-raw-api-script" class="mono" style="font-size:0.74rem;color:var(--text-muted);">API Script: SiegeAddition.Script.txt</span>
+          </div>
+        </div>
+
+        <div class="channel-right">
+          <div class="channel-metric-box">
+            <span class="channel-metric-label">Channel Players</span>
+            <span id="channel-players-val" class="channel-metric-val">14 / 32</span>
+          </div>
+          <div class="channel-metric-box">
+            <span class="channel-metric-label">Next Mode In</span>
+            <span id="channel-countdown" class="channel-metric-val mono">00m 00s</span>
+          </div>
+          <div style="display:flex;flex-direction:column;gap:0.35rem;">
+            <a id="channel-join-btn" href="maniaplanet://#join=sm_channel_live@SMStormSiege@nadeolabs" class="btn btn-primary">
+              Join Channel Server
+            </a>
+            <button type="button" id="btn-toggle-schedule" class="btn btn-sm">
+              24h Rotation Schedule
+            </button>
+          </div>
+        </div>
+      </div>
+
+      <div class="channel-footer">
+        <div class="rotation-progress-wrap">
+          <div class="rotation-progress-labels">
+            <span>Hourly Program Progress</span>
+            <span class="mono">60 min slot</span>
+          </div>
+          <div class="progress-track">
+            <div id="channel-progress-bar" class="progress-fill" style="width: 50%;"></div>
+          </div>
+        </div>
+
+        <div class="channel-next-preview">
+          <span class="next-pill">Up Next</span>
+          <strong id="channel-next-program">Smurfs Royal</strong>
+        </div>
+      </div>
+
+      <!-- Expandable 24-Hour ShootMania Live Channel Rotation Grid -->
+      <div id="channel-schedule-drawer" class="schedule-drawer">
+        <div style="display:flex;align-items:center;justify-content:space-between;">
+          <strong style="font-size:0.84rem;">ShootMania Live — Hourly Program Schedule</strong>
+          <span style="font-size:0.75rem;color:var(--text-muted);">Official ManiaPlanet 4 Channel Rotation</span>
+        </div>
+        <div id="channel-schedule-grid" class="schedule-grid"></div>
+      </div>
+    </section>
+
+    <!-- 3. VIEW TABS & FILTER BAR -->
+    <div class="controls-bar">
+      <div class="view-tabs" role="tablist">
+        <button type="button" class="view-tab active" data-tab="servers" role="tab">
+          Online Servers
+          <span id="tab-count-servers" class="tab-count">0</span>
+        </button>
+        <button type="button" class="view-tab" data-tab="players" role="tab">
+          Online Players
+          <span id="tab-count-players" class="tab-count">0</span>
+        </button>
+        <button type="button" class="view-tab" data-tab="dictionary" role="tab">
+          API Name Parser
+        </button>
+      </div>
+
+      <div class="filter-group">
+        <div class="search-input-wrap">
+          <svg class="icon-svg" viewBox="0 0 24 24" aria-hidden="true">
+            <circle cx="11" cy="11" r="8" />
+            <line x1="21" y1="21" x2="16.65" y2="16.65" />
+          </svg>
+          <input
+            type="search"
+            id="filter-search"
+            class="input-control"
+            placeholder="Search server, mode, map, or player..."
+            aria-label="Search ShootMania servers and players"
+          />
+        </div>
+
+        <select id="filter-category" class="select-control" aria-label="Filter by ShootMania mode">
+          <option value="all">All ShootMania Modes</option>
+          <option value="channel">★ Channels Server Only</option>
+          <option value="elite">Elite / Heroes</option>
+          <option value="royal">Royal</option>
+          <option value="siege">Siege / Assault</option>
+          <option value="obstacle">Obstacle</option>
+          <option value="speedball">SpeedBall</option>
+          <option value="joust">Joust / Duel</option>
+          <option value="battle">Battle</option>
+          <option value="infection">Infection</option>
+          <option value="melee">Melee / CardMelee</option>
+          <option value="combo">Combo</option>
+        </select>
+
+        <select id="filter-sort" class="select-control" aria-label="Sort servers">
+          <option value="players_desc">Sort: Most Players</option>
+          <option value="players_asc">Sort: Fewest Players</option>
+          <option value="name_asc">Sort: Server Name</option>
+          <option value="mode_asc">Sort: Gamemode</option>
+        </select>
+
+        <select id="filter-name-format" class="select-control" aria-label="Server &amp; Player Name Formatting">
+          <option value="clean">Names: Clean Text</option>
+          <option value="colored">Names: ManiaPlanet Colors</option>
+          <option value="raw">Names: Raw API Strings</option>
+        </select>
+
+        <label class="checkbox-label">
+          <input type="checkbox" id="filter-hide-empty" />
+          <span>Hide Empty</span>
+        </label>
+      </div>
+    </div>
+
+    <!-- 4A. ONLINE SERVERS PANEL -->
+    <section id="panel-servers" class="panel-section active" aria-label="ShootMania Online Servers">
+      <div class="table-card">
+        <div class="table-responsive">
+          <table class="data-table">
+            <thead>
+              <tr>
+                <th>Server Name &amp; Active Players</th>
+                <th>Gamemode</th>
+                <th>Title Pack</th>
+                <th>Zone</th>
+                <th>Players</th>
+                <th style="text-align:right;">Action</th>
+              </tr>
+            </thead>
+            <tbody id="servers-tbody"></tbody>
+          </table>
+        </div>
+      </div>
+    </section>
+
+    <!-- 4B. CURRENTLY ONLINE PLAYERS PANEL -->
+    <section id="panel-players" class="panel-section" aria-label="Currently Online ShootMania Players">
+      <div id="players-grid" class="players-grid"></div>
+    </section>
+
+    <!-- 4C. MANIAPLANET API NAME PARSER & TRANSLATION REFERENCE PANEL -->
+    <section id="panel-dictionary" class="panel-section" aria-label="ManiaPlanet API Name Translation Reference">
+      <div class="inspector-card" style="margin-bottom: 1rem;">
+        <div class="inspector-title">Interactive ManiaPlanet String &amp; Gamemode Parser</div>
+        <div class="inspector-desc">
+          Test how ugly ManiaPlanet API strings, raw <code>titleId</code>s, and raw <code>script_name</code> paths are cleaned and displayed.
+        </div>
+        <div class="inspector-grid">
+          <div>
+            <div class="form-group">
+              <label class="form-label" for="live-parser-input">Raw API Server / Player Name</label>
+              <input
+                type="text"
+                id="live-parser-input"
+                class="input-control mono"
+                value="$o$s$f90~ $fffPIXEL SERIES $0cf// $39fElite Pro 3v3 $888[EU] ~"
+              />
+            </div>
+            <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.5rem;">
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="live-parser-title">Raw API <code>title</code></label>
+                <input
+                  type="text"
+                  id="live-parser-title"
+                  class="input-control mono"
+                  value="SMStormElite@nadeolabs"
+                />
+              </div>
+              <div class="form-group" style="margin-bottom:0;">
+                <label class="form-label" for="live-parser-script">Raw API <code>script_name</code></label>
+                <input
+                  type="text"
+                  id="live-parser-script"
+                  class="input-control mono"
+                  value="ShootMania\Elite\ElitePro.Script.txt"
+                />
+              </div>
+            </div>
+          </div>
+
+          <div style="display:flex;flex-direction:column;justify-content:center;gap:0.5rem;background-color:var(--bg-subtle);padding:0.85rem;border-radius:var(--radius-sm);border:1px solid var(--border);">
+            <div>
+              <span class="stat-label">Clean Display Name</span>
+              <div id="tester-out-clean" style="font-weight:700;font-size:1rem;margin-top:0.15rem;"></div>
+            </div>
+            <div>
+              <span class="stat-label">Contrast-Clamped Color Render</span>
+              <div id="tester-out-colored" style="font-size:0.95rem;margin-top:0.15rem;"></div>
+            </div>
+            <div>
+              <span class="stat-label">Resolved Gamemode &amp; Title Pack</span>
+              <div id="tester-out-mode" style="font-weight:600;color:var(--accent);font-size:0.9rem;margin-top:0.15rem;"></div>
+            </div>
+          </div>
+        </div>
+      </div>
+
+      <div class="inspector-grid">
+        <div class="inspector-card">
+          <div class="inspector-title">ShootMania Title IDs → Clean Names</div>
+          <div class="inspector-desc">
+            Maps raw ManiaPlanet <code>title</code> / <code>titleId</code> identifiers to human-readable ShootMania title packs. All TrackMania environments (<code>Canyon</code>, <code>Stadium</code>, <code>Valley</code>, <code>Lagoon</code>) are strictly excluded.
+          </div>
+          <div id="dict-titles-list" class="mapping-list"></div>
+        </div>
+
+        <div class="inspector-card">
+          <div class="inspector-title">Gamemode Scripts → Clean Names</div>
+          <div class="inspector-desc">
+            Strips <code>ShootMania\...</code> paths and <code>.Script.txt</code> extensions, mapping raw ManiaScript filenames to clean mode labels.
+          </div>
+          <div id="dict-scripts-list" class="mapping-list"></div>
+        </div>
+      </div>
+    </section>
+
+  </main>
+
+  <!-- ====================================================================
+       API SOURCE & CUSTOM JSON MODAL
+       ==================================================================== -->
+  <div id="api-modal" class="modal-backdrop" role="dialog" aria-modal="true" aria-labelledby="modal-title-api">
+    <div class="modal-box">
+      <div class="modal-header">
+        <h2 id="modal-title-api" class="modal-title">ManiaPlanet API &amp; JSON Parser Settings</h2>
+        <button type="button" id="btn-close-modal" class="btn btn-sm">Close</button>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-api-url">ManiaPlanet Servers API Endpoint</label>
+        <input
+          type="url"
+          id="input-api-url"
+          class="input-control mono"
+          placeholder="https://prod.live.maniaplanet.com/webservices/servers?environment=Storm"
+        />
+        <span class="form-help">
+          Filtered to <code>environment=Storm</code> (ShootMania only). Supports ManiaPlanet WebServices v3/v4 or any custom JSON proxy endpoint.
+        </span>
+      </div>
+
+      <div style="display:grid;grid-template-columns:1fr 1fr;gap:0.75rem;">
+        <div class="form-group">
+          <label class="form-label" for="input-cors-proxy">Browser CORS Mode (GitHub Pages)</label>
+          <select id="input-cors-proxy" class="select-control">
+            <option value="allorigins">AllOrigins CORS Proxy (Recommended)</option>
+            <option value="corsproxy">CorsProxy.io</option>
+            <option value="none">Direct Request (No Proxy)</option>
+          </select>
+        </div>
+
+        <div class="form-group">
+          <label class="form-label" for="input-bearer-token">OAuth2 Bearer Token (Optional)</label>
+          <input
+            type="password"
+            id="input-bearer-token"
+            class="input-control mono"
+            placeholder="Optional ManiaPlanet WS token"
+          />
+        </div>
+      </div>
+
+      <div class="form-group">
+        <label class="form-label" for="input-custom-json">Or Paste Raw ManiaPlanet API <code>/servers</code> JSON Payload</label>
+        <textarea
+          id="input-custom-json"
+          class="input-control"
+          placeholder='[{"login":"my_sm_server","name":"$o$f90My Elite Server","title":"SMStormElite@nadeolabs","environment":"Storm","script_name":"ShootMania\\Elite\\ElitePro.Script.txt","player_count":6,"player_max":8}]'
+        ></textarea>
+        <span class="form-help">
+          Any TrackMania servers in the payload are automatically filtered out so only ShootMania servers and players are shown.
+        </span>
+      </div>
+
+      <div style="display:flex;justify-content:flex-end;gap:0.5rem;margin-top:1rem;">
+        <button type="button" id="btn-save-api" class="btn btn-primary">Apply &amp; Parse</button>
+      </div>
+    </div>
+  </div>
+
+  <!-- ====================================================================
+       FOOTER
+       ==================================================================== -->
+  <footer class="site-footer">
+    <div class="container footer-inner">
+      <div>
+        <strong>ShootMania Tracker</strong> — ManiaPlanet API Parser (Storm Environment Only, TrackMania Excluded)
+      </div>
+      <div>
+        Static HTML/CSS/JS • Ready for GitHub Pages
+      </div>
+    </div>
+  </footer>
+
+  <script src="app.js"></script>
+</body>
+</html>
