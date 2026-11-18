@@ -1,0 +1,237 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="dark">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <meta name="description" content="Live Shootmania server browser and hourly rotating Channel tracker powered by the Maniaplanet API." />
+  <title>Shootmania Live — Servers &amp; Channel Tracker</title>
+  <script>
+    (function () {
+      try {
+        var saved = localStorage.getItem('sm_theme');
+        if (saved === 'light' || saved === 'dark') {
+          document.documentElement.dataset.theme = saved;
+        } else if (window.matchMedia && window.matchMedia('(prefers-color-scheme: light)').matches) {
+          document.documentElement.dataset.theme = 'light';
+        }
+      } catch (e) {}
+    })();
+  </script>
+  <link rel="stylesheet" href="./style.css" />
+</head>
+<body>
+  <div class="page-shell">
+    <header class="site-header">
+      <div class="brand">
+        <div class="brand-mark" aria-hidden="true">SM</div>
+        <div>
+          <h1>Shootmania Live</h1>
+          <p class="subtitle">Online Storm servers &amp; hourly rotating Channel</p>
+        </div>
+      </div>
+
+      <div class="header-actions">
+        <div class="status-pill" id="status-pill" aria-live="polite">
+          <span class="status-dot" id="status-dot" aria-hidden="true"></span>
+          <span id="status-text">Loading</span>
+          <span class="status-sep" aria-hidden="true">&middot;</span>
+          <span id="last-updated">--:--:--</span>
+          <span class="status-sep" aria-hidden="true">&middot;</span>
+          <span id="next-refresh" class="tabular">60s</span>
+        </div>
+
+        <button type="button" class="btn btn-secondary" id="refresh-btn" title="Fetch latest data now">
+          <svg width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12a9 9 0 1 1-2.64-6.36" />
+            <polyline points="21 3 21 9 15 9" />
+          </svg>
+          <span>Refresh</span>
+        </button>
+
+        <button type="button" class="btn btn-icon" id="theme-toggle" aria-label="Toggle light and dark theme" title="Toggle light / dark mode">
+          <svg class="icon-sun" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <circle cx="12" cy="12" r="4" />
+            <path d="M12 2v2M12 20v2M4.93 4.93l1.41 1.41M17.66 17.66l1.41 1.41M2 12h2M20 12h2M6.34 17.66l-1.41 1.41M19.07 4.93l-1.41 1.41" />
+          </svg>
+          <svg class="icon-moon" width="16" height="16" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+            <path d="M21 12.79A9 9 0 1 1 11.21 3 7 7 0 0 0 21 12.79z" />
+          </svg>
+        </button>
+      </div>
+    </header>
+
+    <main>
+      <!-- Summary Metrics -->
+      <section class="metrics-grid" aria-label="Summary statistics">
+        <article class="metric-card">
+          <div class="metric-label">Players Online</div>
+          <div class="metric-value tabular" id="metric-players">-</div>
+          <div class="metric-sub tabular" id="metric-spectators">Loading Shootmania data...</div>
+        </article>
+
+        <article class="metric-card metric-card-accent">
+          <div class="metric-label">Channel Server</div>
+          <div class="metric-value tabular" id="metric-channel-players">- / -</div>
+          <div class="metric-sub" id="metric-channel-mode">Detecting active rotation...</div>
+        </article>
+
+        <article class="metric-card">
+          <div class="metric-label">Online Servers</div>
+          <div class="metric-value tabular" id="metric-active-servers">-</div>
+          <div class="metric-sub tabular" id="metric-total-servers">Storm environment only</div>
+        </article>
+      </section>
+
+      <!-- Highlighted Hourly Channel Server -->
+      <section class="channel-highlight" id="channel-highlight" aria-label="Hourly Shootmania Channel server">
+        <div class="channel-top-row">
+          <div class="channel-badges">
+            <span class="badge-live">
+              <span class="pulse-dot" aria-hidden="true"></span>
+              LIVE CHANNEL SERVER
+            </span>
+            <span class="channel-timer tabular" id="channel-rotation-timer">
+              Changes every hour
+            </span>
+          </div>
+          <div class="channel-links">
+            <a href="https://www.maniaplanet.com/channels/shootmania" target="_blank" rel="noopener noreferrer" class="btn btn-ghost btn-sm">
+              Official Schedule
+            </a>
+            <a href="#" class="btn btn-primary btn-sm" id="channel-join-btn">
+              Join Channel
+            </a>
+          </div>
+        </div>
+
+        <div class="channel-main">
+          <div class="channel-identity">
+            <div class="channel-tile-title" id="channel-tile-name">Loading...</div>
+            <div class="channel-subtitle">
+              <span id="channel-subtitle">Shootmania Hourly Channel</span>
+              <span class="meta-dot" aria-hidden="true">&middot;</span>
+              <span id="channel-timeslot" class="tabular">--:-- - --:--</span>
+            </div>
+            <div class="channel-meta" id="channel-meta">
+              <span id="channel-login" class="mono">channel_101</span>
+              <span class="meta-dot" aria-hidden="true">&middot;</span>
+              <span id="channel-zone">Europe</span>
+            </div>
+          </div>
+
+          <div class="channel-population">
+            <div class="channel-pop-numbers tabular">
+              <span class="pop-current" id="channel-player-count">-</span>
+              <span class="pop-sep">/</span>
+              <span class="pop-max" id="channel-player-max">-</span>
+              <span class="pop-unit">players</span>
+            </div>
+            <div class="pop-bar-track" aria-hidden="true">
+              <div class="pop-bar-fill pop-bar-channel" id="channel-pop-bar" style="width: 0%"></div>
+            </div>
+            <div class="channel-spec-count tabular" id="channel-spectator-count">0 spectators</div>
+          </div>
+        </div>
+
+        <div class="channel-footer">
+          <div class="up-next-wrap">
+            <span class="up-next-label">Up next:</span>
+            <div class="up-next-list" id="channel-up-next"></div>
+          </div>
+
+          <button type="button" class="btn btn-ghost btn-sm" id="toggle-schedule-btn" aria-expanded="false" aria-controls="schedule-panel">
+            View 24h / Weekly Schedule
+          </button>
+        </div>
+
+        <!-- Collapsible 24h / Weekly Channel Schedule -->
+        <div class="schedule-panel" id="schedule-panel" hidden>
+          <div class="schedule-header">
+            <div class="schedule-days" id="schedule-days" role="tablist" aria-label="Channel schedule days"></div>
+            <div class="schedule-tz-note" id="schedule-tz-note"></div>
+          </div>
+          <div class="schedule-grid" id="schedule-grid"></div>
+        </div>
+      </section>
+
+      <!-- Status / Error Banner -->
+      <div class="status-banner" id="status-banner" role="alert" hidden></div>
+
+      <!-- Online Shootmania Servers List -->
+      <section class="servers-section" aria-label="Online Shootmania servers">
+        <div class="controls-bar">
+          <div class="search-wrap">
+            <svg class="search-icon" width="15" height="15" viewBox="0 0 24 24" fill="none" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round" aria-hidden="true">
+              <circle cx="11" cy="11" r="8" />
+              <path d="m21 21-4.35-4.35" />
+            </svg>
+            <input
+              type="search"
+              id="search-input"
+              class="search-input"
+              placeholder="Search servers, gamemodes, or regions..."
+              autocomplete="off"
+              aria-label="Search Shootmania servers"
+            />
+          </div>
+
+          <div class="filter-group">
+            <div class="segmented" role="group" aria-label="Player count filter">
+              <button type="button" class="seg-btn active" id="filter-all">All Servers</button>
+              <button type="button" class="seg-btn" id="filter-populated">With Players Only</button>
+            </div>
+
+            <select id="mode-filter" class="select-input" aria-label="Filter by gamemode">
+              <option value="all">All Gamemodes</option>
+            </select>
+
+            <select id="sort-select" class="select-input" aria-label="Sort servers">
+              <option value="players-desc">Players (High to Low)</option>
+              <option value="name-asc">Server Name (A-Z)</option>
+              <option value="mode-asc">Gamemode (A-Z)</option>
+            </select>
+          </div>
+        </div>
+
+        <div class="list-subheader">
+          <h2>Online Shootmania Servers</h2>
+          <span class="filtered-count tabular" id="filtered-count">0 servers</span>
+        </div>
+
+        <div class="table-card">
+          <div class="table-scroll">
+            <table class="servers-table">
+              <thead>
+                <tr>
+                  <th>Server</th>
+                  <th>Gamemode</th>
+                  <th>Players</th>
+                  <th>Region</th>
+                  <th class="col-action"><span class="sr-only">Join</span></th>
+                </tr>
+              </thead>
+              <tbody id="servers-list">
+                <tr>
+                  <td colspan="5" class="empty-cell">Fetching live Shootmania servers...</td>
+                </tr>
+              </tbody>
+            </table>
+          </div>
+        </div>
+      </section>
+    </main>
+
+    <footer class="site-footer">
+      <p>
+        Data sourced live from the
+        <a href="https://www.maniaplanet.com/webservices/servers/online" target="_blank" rel="noopener noreferrer">Maniaplanet Web Services API</a>
+        (<code>Storm</code> environment only) &amp;
+        <a href="https://www.maniaplanet.com/channels/shootmania" target="_blank" rel="noopener noreferrer">Shootmania Channels</a>.
+        Auto-refreshes every 60 seconds.
+      </p>
+    </footer>
+  </div>
+
+  <script src="./app.js" defer></script>
+</body>
+</html>
