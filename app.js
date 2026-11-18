@@ -816,19 +816,64 @@
   /* ==========================================================================
      7. LIVE FETCHING ENGINE (MANIAPLANET API + PUBLIC CHANNEL / TITLES PARSER)
      ========================================================================== */
-  function wrapWithProxy(targetUrl, proxyType) {
+  function wrapWithProxy(targetUrl, proxyType, bustCache = false) {
+    const finalTarget = bustCache
+      ? `${targetUrl}${targetUrl.includes('?') ? '&' : '?'}_cb=${Date.now()}`
+      : targetUrl;
+
     if (proxyType === 'allorigins') {
-      return `https://api.allorigins.win/raw?url=${encodeURIComponent(targetUrl)}`;
+      return `https://api.allorigins.win/raw?url=${encodeURIComponent(finalTarget)}`;
     }
     if (proxyType === 'corsproxy') {
-      return `https://corsproxy.io/?${encodeURIComponent(targetUrl)}`;
+      return `https://corsproxy.io/?${encodeURIComponent(finalTarget)}`;
     }
-    return targetUrl;
+    return finalTarget;
   }
 
   async function fetchManiaPlanetData() {
     const btnRefresh = document.getElementById('btn-refresh');
-    if (btnRefresh) btnRefresh.disabled = true;
+    const statusText = document.getElementById('status-text');
+    if (btnRefresh) {
+      btnRefresh.disabled = true;
+      const labelSpan = btnRefresh.querySelector('span');
+      if (labelSpan) labelSpan.textContent = 'Refreshing...';
+    }
+    if (statusText) statusText.textContent = 'Syncing...';
+
+    let authRequired = false;
+
+    // 1. If using the default endpoint on GitHub Pages, check ./servers.json (updated by GitHub Actions)
+    const defaultEndpoint = 'https://prod.live.maniaplanet.com/webservices/servers?environment=Storm&offset=0&length=100';
+    if (state.settings.endpointUrl.trim() === defaultEndpoint && !state.settings.bearerToken) {
+      try {
+        const localRes = await fetch(`./servers.json?_cb=${Date.now()}`, { cache: 'no-store' });
+        if (localRes.ok) {
+          const localJson = await localRes.json();
+          const localArr = Array.isArray(localJson)
+            ? localJson
+            : localJson && Array.isArray(localJson.servers)
+              ? localJson.servers
+              : localJson && Array.isArray(localJson.items)
+                ? localJson.items
+                : null;
+          if (localArr && localArr.length > 0) {
+            state.rawServers = localArr;
+            state.apiStatus = 'live_api';
+            state.apiStatusLabel = 'Live (GitHub Action Sync)';
+            normalizeServerList(state.rawServers);
+            renderAll();
+            if (btnRefresh) {
+              btnRefresh.disabled = false;
+              const labelSpan = btnRefresh.querySelector('span');
+              if (labelSpan) labelSpan.textContent = 'Refresh';
+            }
+            return;
+          }
+        }
+      } catch (_) {
+        // servers.json not present yet; fall through to API / proxy
+      }
+    }
 
     try {
       const headers = { Accept: 'application/json' };
@@ -837,20 +882,24 @@
       }
 
       const targetUrl = state.settings.endpointUrl.trim();
-      const fetchUrl = wrapWithProxy(targetUrl, state.settings.corsProxy);
+      const fetchUrl = wrapWithProxy(targetUrl, state.settings.corsProxy, true);
 
       const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 5500);
+      const timeoutId = setTimeout(() => controller.abort(), 6000);
 
       const res = await fetch(fetchUrl, {
         method: 'GET',
         headers,
+        cache: 'no-store',
         signal: controller.signal
       });
       clearTimeout(timeoutId);
 
+      if (res.status === 401 || res.status === 403) {
+        authRequired = true;
+      }
+
       if (res.ok) {
-        const contentType = res.headers.get('content-type') || '';
         const text = await res.text();
         let json = null;
         try {
@@ -874,17 +923,22 @@
           state.apiStatusLabel = state.settings.corsProxy === 'none' ? 'Live ManiaPlanet API' : 'Live via Proxy';
           normalizeServerList(state.rawServers);
           renderAll();
-          if (btnRefresh) btnRefresh.disabled = false;
+          if (btnRefresh) {
+            btnRefresh.disabled = false;
+            const labelSpan = btnRefresh.querySelector('span');
+            if (labelSpan) labelSpan.textContent = 'Refresh';
+          }
           return;
         }
       }
-
-      // Secondary attempt: check public ManiaPlanet homepage for live ShootMania Channel program title
-      if (state.settings.corsProxy !== 'none') {
-        await tryFetchPublicShootManiaChannel();
-      }
     } catch (_) {
-      // Graceful fallback to synchronized ShootMania snapshot
+      // Fall through to public channel sync & synchronized snapshot
+    }
+
+    // Secondary attempt: check public ManiaPlanet homepage for live ShootMania Channel program title
+    let channelSynced = false;
+    if (state.settings.corsProxy !== 'none') {
+      channelSynced = await tryFetchPublicShootManiaChannel();
     }
 
     // Ensure our ShootMania servers & hourly channel rotation are populated and fresh
@@ -893,14 +947,35 @@
       const ch = state.rawServers.find((s) => s.is_channel);
       if (ch) {
         ch.name = `$o$s$f70ShootMania Live $fff— $ff0${state.liveChannelOverride}`;
+        const matchedSlot = HOURLY_CHANNEL_PROGRAMS.find((slot) =>
+          slot.title.toLowerCase() === state.liveChannelOverride.toLowerCase() ||
+          state.liveChannelOverride.toLowerCase().includes(slot.title.toLowerCase())
+        );
+        if (matchedSlot) {
+          ch.title = matchedSlot.rawTitleId;
+          ch.script_name = matchedSlot.rawScript;
+          ch.program_author = matchedSlot.author;
+          ch.map = matchedSlot.map;
+        }
       }
     }
-    state.apiStatus = 'live_sync';
-    state.apiStatusLabel = 'ShootMania Live Sync';
+
+    if (authRequired && !state.settings.bearerToken) {
+      state.apiStatus = 'fallback';
+      state.apiStatusLabel = channelSynced ? 'Channel Live (API Needs Token)' : 'Snapshot (API Needs Token)';
+    } else {
+      state.apiStatus = 'live_sync';
+      state.apiStatusLabel = channelSynced ? 'Channel Live Sync' : 'ShootMania Live Sync';
+    }
+
     normalizeServerList(state.rawServers);
     renderAll();
 
-    if (btnRefresh) btnRefresh.disabled = false;
+    if (btnRefresh) {
+      btnRefresh.disabled = false;
+      const labelSpan = btnRefresh.querySelector('span');
+      if (labelSpan) labelSpan.textContent = 'Refresh';
+    }
   }
 
   /**
@@ -908,21 +983,38 @@
    * via CORS proxy to sync the live channel program title if available.
    */
   async function tryFetchPublicShootManiaChannel() {
-    try {
-      const url = wrapWithProxy('https://maniaplanet.com/', state.settings.corsProxy);
-      const controller = new AbortController();
-      const timer = setTimeout(() => controller.abort(), 3500);
-      const res = await fetch(url, { signal: controller.signal });
-      clearTimeout(timer);
-      if (!res.ok) return;
-      const html = await res.text();
-      const match = html.match(/Shootmania Live[\s\S]{1,250}?LIVE\s+([^\n<]+)/i);
-      if (match && match[1]) {
-        state.liveChannelOverride = match[1].trim();
+    const proxies = state.settings.corsProxy === 'allorigins'
+      ? ['allorigins', 'corsproxy']
+      : [state.settings.corsProxy, 'allorigins'];
+
+    for (const proxy of proxies) {
+      try {
+        const url = wrapWithProxy('https://maniaplanet.com/', proxy, true);
+        const controller = new AbortController();
+        const timer = setTimeout(() => controller.abort(), 4500);
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) continue;
+
+        const html = await res.text();
+        const doc = new DOMParser().parseFromString(html, 'text/html');
+        const bodyText = (doc.body && doc.body.textContent) ? doc.body.textContent : html.replace(/<[^>]+>/g, ' ');
+        const normalized = bodyText.replace(/\s+/g, ' ');
+
+        const match = normalized.match(/Shootmania Live\s+LIVE\s+(.+?)(?:\s+S\d+\s*E\d+|\s+Trackmania Live)/i);
+        if (match && match[1]) {
+          // Strip private-use icon font glyphs (e.g. FontAwesome flag icon) and extra whitespace
+          const cleaned = match[1].replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
+          if (cleaned) {
+            state.liveChannelOverride = cleaned;
+            return true;
+          }
+        }
+      } catch (_) {
+        // try next proxy
       }
-    } catch (_) {
-      // ignore
     }
+    return false;
   }
 
   /* ==========================================================================
@@ -956,7 +1048,10 @@
     } else if (state.apiStatus === 'fallback') {
       dot.classList.add('status-fallback');
     }
-    text.textContent = state.apiStatusLabel;
+    const timeStr = state.lastUpdated
+      ? state.lastUpdated.toLocaleTimeString([], { hour: '2-digit', minute: '2-digit', second: '2-digit' })
+      : '';
+    text.textContent = timeStr ? `${state.apiStatusLabel} • ${timeStr}` : state.apiStatusLabel;
   }
 
   function renderSummaryKPIs() {
@@ -1536,6 +1631,14 @@
 
     // Attempt live API / proxy fetch in background
     fetchManiaPlanetData();
+
+    // Periodic background refresh (default 60s)
+    const refreshIntervalMs = Math.max(15, state.settings.autoRefreshSec || 60) * 1000;
+    setInterval(() => {
+      if (state.apiStatus !== 'custom_json') {
+        fetchManiaPlanetData();
+      }
+    }, refreshIntervalMs);
 
     // 1-second ticker for the hourly ShootMania Live Channel countdown & rotation
     let lastUtcHour = new Date().getUTCHours();
