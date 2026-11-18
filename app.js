@@ -1,7 +1,14 @@
 (function () {
   'use strict';
 
-  const API_URL = 'https://www.maniaplanet.com/webservices/servers/online?environments[]=Storm&length=1000';
+  const API_ENDPOINTS = [
+    'https://www.maniaplanet.com/webservices/servers/online?environments%5B%5D=Storm&length=1000',
+    'https://prod.live.maniaplanet.com/webservices/servers/online?environments%5B%5D=Storm&length=1000',
+    'https://www.maniaplanet.com/webservices/servers/online?length=1000',
+    'https://prod.live.maniaplanet.com/webservices/servers/online?length=1000',
+    './servers.json',
+  ];
+  const FETCH_TIMEOUT_MS = 8000;
   const CHANNELS_URL = 'https://www.maniaplanet.com/channels/shootmania';
   const REFRESH_INTERVAL_MS = 60_000;
   const PARIS_TZ = 'Europe/Paris';
@@ -115,6 +122,7 @@
 
   const SCRIPT_MODE_MAP = {
     CTFMode: 'CTF',
+    Infection: 'Infection',
     DodgeballFun: 'Dodgeball',
     SiegePro: 'Siege',
     BattlePro: 'Battle',
@@ -160,11 +168,13 @@
     'SpeedBall@steeffeen': 'SpeedBall',
     'ArenaDuel4@darkminus': 'Arena Duel',
     'TurboFrogger@guerro': 'Turbo Frogger',
+    'Infection@dmark': 'Infection',
   };
 
   const state = {
     servers: [],
     channelServer: null,
+    lastWorkingEndpoint: null,
     searchQuery: '',
     onlyWithPlayers: false,
     modeFilter: 'all',
@@ -424,6 +434,8 @@
       cleanName,
       cleanMode,
       isChannel: channel,
+      isHighlightedChannel: false,
+      isChannelStandby: false,
       channelProgram,
       playerCount,
       playerMax,
@@ -467,6 +479,58 @@
     return grid;
   }
 
+  async function fetchJsonWithTimeout(url, isRemote) {
+    const controller = new AbortController();
+    const timer = setTimeout(() => controller.abort(), FETCH_TIMEOUT_MS);
+    try {
+      const options = isRemote
+        ? { mode: 'cors', credentials: 'omit', signal: controller.signal }
+        : { cache: 'no-store', signal: controller.signal };
+      const response = await fetch(url, options);
+      if (!response.ok) {
+        throw new Error(`HTTP ${response.status}`);
+      }
+      const payload = await response.json();
+      const rawList = Array.isArray(payload) ? payload : Object.values(payload || {});
+      const hasStorm = rawList.some((srv) => srv && srv.environment === 'Storm');
+      if (!hasStorm && rawList.length === 0) {
+        throw new Error('Empty server list');
+      }
+      return rawList;
+    } finally {
+      clearTimeout(timer);
+    }
+  }
+
+  async function fetchRawServersWithFallback() {
+    const ordered = state.lastWorkingEndpoint
+      ? [state.lastWorkingEndpoint, ...API_ENDPOINTS.filter((ep) => ep !== state.lastWorkingEndpoint)]
+      : API_ENDPOINTS;
+
+    let firstRemoteError = null;
+
+    for (const endpoint of ordered) {
+      const isRemote = /^https?:\/\//i.test(endpoint);
+      const attemptUrls = isRemote && state.lastWorkingEndpoint === endpoint
+        ? [`${endpoint}&_=${Date.now()}`, endpoint]
+        : [endpoint];
+
+      for (const attemptUrl of attemptUrls) {
+        try {
+          const rawList = await fetchJsonWithTimeout(attemptUrl, isRemote);
+          state.lastWorkingEndpoint = endpoint;
+          return rawList;
+        } catch (err) {
+          if (isRemote && !firstRemoteError) {
+            firstRemoteError = err instanceof Error ? err.message : String(err);
+          }
+        }
+      }
+    }
+
+    throw new Error(firstRemoteError || 'All Maniaplanet API endpoints failed');
+  }
+
   async function fetchShootmaniaServers() {
     if (state.isFetching) return;
     state.isFetching = true;
@@ -474,12 +538,7 @@
     setStatusPill('loading', 'Updating...');
 
     try {
-      const response = await fetch(API_URL, { cache: 'no-store' });
-      if (!response.ok) {
-        throw new Error(`Maniaplanet API returned HTTP ${response.status}`);
-      }
-      const payload = await response.json();
-      const rawList = Array.isArray(payload) ? payload : Object.values(payload || {});
+      const rawList = await fetchRawServersWithFallback();
 
       const parisNow = getParisDateParts();
       const currentSlotProgram = getScheduledProgram(parisNow.dayIndex, parisNow.hour);
@@ -489,16 +548,29 @@
         .filter((srv) => srv && srv.environment === 'Storm')
         .map((srv) => normalizeServer(srv, currentSlotProgram));
 
-      // Identify active channel server (prefer channel_101 or highest player count)
+      // Identify the active Channel server for the current Paris hour
       const channelCandidates = stormServers.filter((srv) => srv.isChannel);
       channelCandidates.sort((a, b) => {
-        if (a.login === 'channel_101' && b.login !== 'channel_101') return -1;
-        if (b.login === 'channel_101' && a.login !== 'channel_101') return 1;
-        return b.playerCount - a.playerCount;
+        const aMatch = a.channelProgram && a.channelProgram.id === currentSlotProgram.id ? 1 : 0;
+        const bMatch = b.channelProgram && b.channelProgram.id === currentSlotProgram.id ? 1 : 0;
+        if (bMatch !== aMatch) return bMatch - aMatch;
+        if (b.playerCount !== a.playerCount) return b.playerCount - a.playerCount;
+        return a.login.localeCompare(b.login);
       });
 
+      const primaryChannel = channelCandidates[0] || null;
+      for (const srv of channelCandidates) {
+        const matchesCurrent = srv.channelProgram && srv.channelProgram.id === currentSlotProgram.id;
+        const isLive = srv === primaryChannel || matchesCurrent || srv.playerCount > 0;
+        srv.isHighlightedChannel = srv === primaryChannel;
+        srv.isChannelStandby = !isLive;
+        if (srv.isChannelStandby && srv.channelProgram) {
+          srv.cleanName = `Channel (Standby): ${srv.channelProgram.tileName}`;
+        }
+      }
+
       state.servers = stormServers;
-      state.channelServer = channelCandidates[0] || null;
+      state.channelServer = primaryChannel;
       state.lastFetchAt = new Date();
       state.nextFetchAt = Date.now() + REFRESH_INTERVAL_MS;
       state.lastError = null;
@@ -510,7 +582,9 @@
     } catch (err) {
       state.lastError = err instanceof Error ? err.message : 'Failed to fetch Maniaplanet API';
       setStatusPill('error', 'Error');
-      showBanner(`Unable to reach Maniaplanet API (${state.lastError}). Will retry automatically.`);
+      showBanner(
+        `Unable to reach Maniaplanet API (${state.lastError}). Try a hard refresh (Ctrl+F5) or check if an adblocker/privacy extension is blocking maniaplanet.com on github.io.`
+      );
       // Still render schedule-based Channel highlight even if API fails
       renderChannelHighlight();
       renderSchedule();
@@ -736,10 +810,10 @@
     });
 
     filtered.sort((a, b) => {
-      // Keep the highlighted Channel server pinned first when sorting by players
+      // Keep the active Channel server pinned first among equal player counts
       if (state.sortBy === 'players-desc') {
         if (b.playerCount !== a.playerCount) return b.playerCount - a.playerCount;
-        if (a.isChannel !== b.isChannel) return a.isChannel ? -1 : 1;
+        if (a.isHighlightedChannel !== b.isHighlightedChannel) return a.isHighlightedChannel ? -1 : 1;
         if (b.spectatorCount !== a.spectatorCount) return b.spectatorCount - a.spectatorCount;
         return a.cleanName.localeCompare(b.cleanName);
       }
@@ -777,7 +851,7 @@
     const fragment = document.createDocumentFragment();
     for (const srv of list) {
       const tr = document.createElement('tr');
-      if (srv.isChannel) tr.className = 'row-channel';
+      if (srv.isHighlightedChannel) tr.className = 'row-channel';
 
       // Column 1: Server Name + badges + login
       const nameTd = document.createElement('td');
@@ -789,11 +863,16 @@
       titleSpan.textContent = srv.cleanName;
       nameWrap.appendChild(titleSpan);
 
-      if (srv.isChannel) {
+      if (srv.isChannel && !srv.isChannelStandby) {
         const chTag = document.createElement('span');
         chTag.className = 'tag tag-channel';
         chTag.textContent = 'CHANNEL';
         nameWrap.appendChild(chTag);
+      } else if (srv.isChannelStandby) {
+        const standbyTag = document.createElement('span');
+        standbyTag.className = 'tag tag-private';
+        standbyTag.textContent = 'Standby';
+        nameWrap.appendChild(standbyTag);
       }
 
       if (srv.isPrivate) {
