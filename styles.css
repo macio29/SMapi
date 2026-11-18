@@ -216,13 +216,6 @@ button, input, select, textarea {
   background-color: var(--bg-subtle);
   border: 1px solid var(--border);
   color: var(--text-secondary);
-  cursor: pointer;
-  transition: border-color 0.15s ease, background-color 0.15s ease;
-}
-
-.api-status-badge:hover {
-  border-color: var(--border-strong);
-  background-color: var(--bg-hover);
 }
 
 .status-dot {
@@ -877,107 +870,6 @@ button, input, select, textarea {
   background-color: var(--accent);
 }
 
-/*Inline Player Chips inside Server Row*/
-.inline-players-list {
-  display: flex;
-  flex-wrap: wrap;
-  gap: 0.25rem;
-  margin-top: 0.25rem;
-}
-
-.player-chip {
-  font-size: 0.72rem;
-  padding: 0.08rem 0.42rem;
-  border-radius: 4px;
-  background-color: var(--bg-subtle);
-  border: 1px solid var(--border);
-  color: var(--text-secondary);
-}
-
-/* ==========================================================================
-   Online Players Grid View
-   ========================================================================== */
-.players-grid {
-  display: grid;
-  grid-template-columns: repeat(auto-fill, minmax(280px, 1fr));
-  gap: 0.75rem;
-}
-
-.player-card {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border);
-  border-radius: var(--radius-md);
-  padding: 0.85rem 1rem;
-  display: flex;
-  flex-direction: column;
-  gap: 0.55rem;
-  transition: border-color 0.12s ease;
-}
-
-.player-card:hover {
-  border-color: var(--border-strong);
-}
-
-.player-card-top {
-  display: flex;
-  align-items: flex-start;
-  justify-content: space-between;
-  gap: 0.5rem;
-}
-
-.player-nickname {
-  font-weight: 700;
-  font-size: 0.95rem;
-  color: var(--text-primary);
-  line-height: 1.25;
-}
-
-.player-login {
-  font-family: var(--font-mono);
-  font-size: 0.74rem;
-  color: var(--text-muted);
-}
-
-.player-role-badge {
-  font-size: 0.68rem;
-  font-weight: 600;
-  text-transform: uppercase;
-  padding: 0.12rem 0.45rem;
-  border-radius: 999px;
-  background-color: var(--online-soft);
-  color: var(--online);
-}
-
-.player-role-badge.is-spec {
-  background-color: var(--bg-subtle);
-  color: var(--text-muted);
-}
-
-.player-card-server {
-  padding-top: 0.55rem;
-  border-top: 1px solid var(--border);
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  gap: 0.5rem;
-  font-size: 0.78rem;
-}
-
-.player-server-info {
-  display: flex;
-  flex-direction: column;
-  gap: 0.1rem;
-  min-width: 0;
-}
-
-.player-server-name {
-  font-weight: 600;
-  color: var(--text-secondary);
-  white-space: nowrap;
-  overflow: hidden;
-  text-overflow: ellipsis;
-}
-
 /* ==========================================================================
    Name Reference & API Parser Inspector View
    ========================================================================== */
@@ -1039,50 +931,7 @@ button, input, select, textarea {
   white-space: nowrap;
 }
 
-/* ==========================================================================
-   API Settings & Custom JSON Modal/Drawer
-   ========================================================================== */
-.modal-backdrop {
-  position: fixed;
-  inset: 0;
-  background-color: rgba(15, 23, 42, 0.55);
-  z-index: 100;
-  display: none;
-  align-items: center;
-  justify-content: center;
-  padding: 1rem;
-}
-
-.modal-backdrop.open {
-  display: flex;
-}
-
-.modal-box {
-  background-color: var(--bg-surface);
-  border: 1px solid var(--border-strong);
-  border-radius: var(--radius-lg);
-  width: 100%;
-  max-width: 600px;
-  padding: 1.25rem;
-  box-shadow: var(--shadow-md);
-  max-height: 90vh;
-  overflow-y: auto;
-}
-
-.modal-header {
-  display: flex;
-  align-items: center;
-  justify-content: space-between;
-  padding-bottom: 0.75rem;
-  border-bottom: 1px solid var(--border);
-  margin-bottom: 1rem;
-}
-
-.modal-title {
-  font-size: 1.05rem;
-  font-weight: 700;
-}
-
+/* Parser Input Controls */
 .form-group {
   display: flex;
   flex-direction: column;
@@ -1096,16 +945,27 @@ button, input, select, textarea {
   color: var(--text-primary);
 }
 
-.form-help {
-  font-size: 0.74rem;
-  color: var(--text-muted);
+/* Honest API Notice Banner */
+.notice-banner {
+  background-color: var(--bg-surface);
+  border: 1px solid var(--border);
+  border-left: 3px solid var(--info);
+  border-radius: var(--radius-md);
+  padding: 0.85rem 1rem;
+  margin-bottom: 0.85rem;
+  font-size: 0.83rem;
+  color: var(--text-secondary);
+  display: flex;
+  flex-direction: column;
+  gap: 0.25rem;
 }
 
-textarea.input-control {
-  font-family: var(--font-mono);
-  font-size: 0.76rem;
-  min-height: 110px;
-  resize: vertical;
+.notice-banner.notice-warning {
+  border-left-color: var(--warning);
+}
+
+.notice-banner strong {
+  color: var(--text-primary);
 }
 
 /* Empty State */

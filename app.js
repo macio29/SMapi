@@ -223,20 +223,29 @@
      */
     isShootManiaServer(srv) {
       if (!srv) return false;
-      const env = String(srv.environment || srv.env || '').toLowerCase().trim();
-      const title = String(srv.title || srv.titleId || srv.title_uid || '').toLowerCase().trim();
-      const script = String(srv.script_name || srv.scriptName || '').toLowerCase().trim();
+      const rawEnvField = srv.environment ?? srv.env ?? srv.environments ?? '';
+      const envList = Array.isArray(rawEnvField)
+        ? rawEnvField.map((e) => String(e || '').toLowerCase().trim()).filter(Boolean)
+        : String(rawEnvField).toLowerCase().trim()
+            .split(/[,|]+/)
+            .map((e) => e.trim())
+            .filter(Boolean);
+      const env = envList.join(',');
+
+      const rawTitleObj = srv.title && typeof srv.title === 'object' ? (srv.title.id || srv.title.uid || srv.title.name || '') : srv.title;
+      const title = String(rawTitleObj || srv.titleId || srv.title_uid || srv.titleUid || '').toLowerCase().trim();
+      const script = String(srv.script_name || srv.scriptName || srv.gamemode || srv.mode || '').toLowerCase().trim();
+
+      // Accept explicit Storm / ShootMania environment (before generic prefix checks)
+      if (envList.includes('storm') || envList.includes('shootmania')) return true;
 
       // Reject explicit TrackMania environments
-      if (env && TRACKMANIA_ENVS.has(env)) return false;
+      if (envList.length > 0 && envList.some((e) => TRACKMANIA_ENVS.has(e))) return false;
 
       // Reject explicit TrackMania title packs
       for (const prefix of TRACKMANIA_TITLE_PREFIXES) {
         if (title.startsWith(prefix) || title.includes('trackmania')) return false;
       }
-
-      // Accept explicit Storm / ShootMania environment
-      if (env === 'storm' || env === 'shootmania') return true;
 
       // Accept known ShootMania title packs or SMStorm prefixes
       if (
@@ -436,249 +445,13 @@
   }
 
   /* ==========================================================================
-     4. REALISTIC SHOOTMANIA SNAPSHOT & LIVE MERGE DATA
-     Contains authentic ManiaPlanet $-formatted server names, titleIds, scripts,
-     and online ShootMania players. Dynamically syncs the Channels server to
-     the active UTC hour rotation.
+     4. APPLICATION STATE
      ========================================================================== */
-  function buildDefaultShootManiaServers() {
-    const rot = getChannelRotationState();
-    const cur = rot.currentSlot;
-
-    return [
-      {
-        login: 'sm_channel_live',
-        name: `$o$s$f70ShootMania Live $fff— $ff0${cur.title}`,
-        title: cur.rawTitleId,
-        environment: 'Storm',
-        script_name: cur.rawScript,
-        player_count: 14,
-        player_max: 32,
-        spectator_count: 2,
-        spectator_max: 16,
-        zone: 'World|Europe|France',
-        is_private: false,
-        is_channel: true,
-        program_id: cur.programId,
-        program_author: cur.author,
-        map: cur.map,
-        players: [
-          { login: 'guerro.unbitn', nickname: '$o$09fΛtría $fff/ $0dfguerro', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'ziyx_atria', nickname: '$s$f09Λtría $fffɀıצx', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'hype_smurf', nickname: '$0f0=THB= $fffHYPE Smurf', zone: 'World|Europe|Netherlands', isSpectator: false },
-          { login: 'dmark_sm', nickname: '$f60ζѻア॥ $fffĐmαяκ', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'liber_sm', nickname: '$o$f90Lιвєя $fff➴', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'krono_storm', nickname: '$0cfKrono$fffStorm', zone: 'World|Europe|United Kingdom', isSpectator: false },
-          { login: 'vex_laser', nickname: '$f33Vex$fff.Laser', zone: 'World|Europe|Sweden', isSpectator: false },
-          { login: 'nyx_rocket', nickname: '$90fNyx$fff_99', zone: 'World|Europe|Poland', isSpectator: false },
-          { login: 'solaris_mp', nickname: '$ff0Solaris$fff.gg', zone: 'World|Europe|Belgium', isSpectator: false },
-          { login: 'tali_sm', nickname: '$0f9Tali$fffZora', zone: 'World|Europe|Switzerland', isSpectator: false },
-          { login: 'drifter_sm', nickname: '$f80Drifter$fff_SM', zone: 'World|North America|United States', isSpectator: false },
-          { login: 'kaiser_77', nickname: '$c00Kaiser$fff77', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'echo_pulse', nickname: '$0afEcho$fffPulse', zone: 'World|Europe|Finland', isSpectator: false },
-          { login: 'zenith_pro', nickname: '$o$3f3Zenith$fffPro', zone: 'World|Europe|Czechia', isSpectator: false },
-          { login: 'caster_alinoa', nickname: '$f0fAlinoA $fff[Cast]', zone: 'World|Europe|France', isSpectator: true },
-          { login: 'spec_cam01', nickname: '$888SM_Observer', zone: 'World|Europe|France', isSpectator: true }
-        ]
-      },
-      {
-        login: 'obstacle_main_eu',
-        name: '$o$s$0cf[EU] $fffObstacle $0cf• $fffBeginner to Pro $888| $0f9PyPlanet Records',
-        title: 'obstacle@smokegun',
-        environment: 'Storm',
-        script_name: 'Modes\\ShootMania\\TimeAttack.Script.txt',
-        player_count: 9,
-        player_max: 40,
-        spectator_count: 1,
-        spectator_max: 20,
-        zone: 'World|Europe|Germany',
-        is_private: false,
-        is_channel: false,
-        map: '$s$0cfObs $fff- Ascent Chapter II',
-        players: [
-          { login: 'loooooser_obs', nickname: '$o$0ffमscҽητ $fff« loooooser', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'effect_obs', nickname: '$o$f60eFFecT', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'steeffeen_sm', nickname: '$09fsteeffeen', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'Aijena2', nickname: '$f09Aijena2', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'walljump_king', nickname: '$0f0WJ$fff_Master', zone: 'World|Europe|Poland', isSpectator: false },
-          { login: 'strafe_runner', nickname: '$ff0Strafe$fffRunner', zone: 'World|Europe|United Kingdom', isSpectator: false },
-          { login: 'plume_obs', nickname: '$9cfPlume$fff.obs', zone: 'World|Europe|Belgium', isSpectator: false },
-          { login: 'glide_zero', nickname: '$f90Glide$fffZero', zone: 'World|Europe|Austria', isSpectator: false },
-          { login: 'nova_stamina', nickname: '$0faNova$fffStamina', zone: 'World|Europe|Norway', isSpectator: false },
-          { login: 'afk_coffee', nickname: '$888m4rcel [AFK]', zone: 'World|Europe|France', isSpectator: true }
-        ]
-      },
-      {
-        login: 'paragon_elite_pickup',
-        name: '$o$s$39fPIXEL SERIES $fff// $39fElite Pro 3v3 $fffPickup #1',
-        title: 'SMStormElite@nadeolabs',
-        environment: 'Storm',
-        script_name: 'ShootMania\\Elite\\ElitePro.Script.txt',
-        player_count: 6,
-        player_max: 8,
-        spectator_count: 2,
-        spectator_max: 8,
-        zone: 'World|Europe|France',
-        is_private: false,
-        is_channel: false,
-        map: 'Elite - Golden Creek Pro',
-        players: [
-          { login: 'xenom_2bfree', nickname: '$o$0cf2bFree $fff| Xeи0м', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'triss_atria', nickname: '$o$f60Λtría $fffTriss', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'njin_apex', nickname: '$o$f00ΛΡΞΧ$fff N-Jin', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'vortex_elite', nickname: '$09fVortex$fff.eL', zone: 'World|Europe|Sweden', isSpectator: false },
-          { login: 'hawk_rail', nickname: '$ff0Hawk$fffLaser', zone: 'World|Europe|United Kingdom', isSpectator: false },
-          { login: 'blaze_storm', nickname: '$f60Blaze$fff.SM', zone: 'World|Europe|Spain', isSpectator: false },
-          { login: 'sub_ready1', nickname: '$888Konte [Sub]', zone: 'World|Europe|France', isSpectator: true },
-          { login: 'pixel_tv', nickname: '$0cfPixelSeries_TV', zone: 'World|Europe|France', isSpectator: true }
-        ]
-      },
-      {
-        login: 'siege_unlimited_eu',
-        name: '$o$s$f90~ $fffSiege Classic 5v5 $f90~ $fffAll Maps Rotation',
-        title: 'SMStormSiege@nadeolabs',
-        environment: 'Storm',
-        script_name: 'ShootMania\\Siege\\Siege.Script.txt',
-        player_count: 8,
-        player_max: 16,
-        spectator_count: 0,
-        spectator_max: 8,
-        zone: 'World|Europe|Netherlands',
-        is_private: false,
-        is_channel: false,
-        map: 'Siege - Castle Crossfire',
-        players: [
-          { login: 'c2_battle', nickname: '$o$f30c2', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'shield_bearer', nickname: '$09fAegis$fff.Siege', zone: 'World|Europe|Netherlands', isSpectator: false },
-          { login: 'gate_breaker', nickname: '$f90Breach$fffPoint', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'raider_one', nickname: '$0f0Raider$fff_01', zone: 'World|Europe|Belgium', isSpectator: false },
-          { login: 'storm_archer', nickname: '$ff0Arrow$fffStorm', zone: 'World|Europe|Denmark', isSpectator: false },
-          { login: 'titan_def', nickname: '$c3fTitan$fffDefender', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'valkyrie_sm', nickname: '$f69Valkyrie$fff_SM', zone: 'World|Europe|Sweden', isSpectator: false },
-          { login: 'pyro_nucleus', nickname: '$f33Nucleus$fffKing', zone: 'World|Europe|Poland', isSpectator: false }
-        ]
-      },
-      {
-        login: 'smurfen_royal_arena',
-        name: '$o$s$0f0=THB= $fffSmurfen.net $0f0Royal Arena $fff24/7',
-        title: 'SMStormRoyal@nadeolabs',
-        environment: 'Storm',
-        script_name: 'ShootMania\\Royal\\Royal.Script.txt',
-        player_count: 5,
-        player_max: 24,
-        spectator_count: 0,
-        spectator_max: 10,
-        zone: 'World|Europe|Netherlands',
-        is_private: false,
-        is_channel: false,
-        map: 'Royal - Offcenter Spire',
-        players: [
-          { login: 'weerwolf_lgc', nickname: '$o$0f9LGC〢$fffWeerWolf', zone: 'World|Europe|Netherlands', isSpectator: false },
-          { login: 'smurf_red', nickname: '$0f0=THB= $fffRedSmurf', zone: 'World|Europe|Netherlands', isSpectator: false },
-          { login: 'tornado_runner', nickname: '$ff0Pole$fffCapper', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'sky_rocket', nickname: '$0cfSky$fffRocket', zone: 'World|Europe|United Kingdom', isSpectator: false },
-          { login: 'airshot_99', nickname: '$f60Airshot$fff99', zone: 'World|Europe|France', isSpectator: false }
-        ]
-      },
-      {
-        login: 'speedball_league_1',
-        name: '$o$s$f09SpeedBall $fffFun Cup Server $888| $f094v4 Arena',
-        title: 'SpeedBall@steeffeen',
-        environment: 'Storm',
-        script_name: 'Modes\\ShootMania\\SpeedBall.Script.txt',
-        player_count: 4,
-        player_max: 12,
-        spectator_count: 0,
-        spectator_max: 8,
-        zone: 'World|Europe|Germany',
-        is_private: false,
-        is_channel: false,
-        map: 'SpeedBall - Cyber Stadium v3',
-        players: [
-          { login: 'fadden_cm', nickname: '$o$0f9`Fadden`', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'wawawawu_g3', nickname: '$f90[G³!] $fffwawawawu!', zone: 'World|Europe|France', isSpectator: false },
-          { login: 'striker_sb', nickname: '$0cfGoal$fffRunner', zone: 'World|Europe|Germany', isSpectator: false },
-          { login: 'keeper_sb', nickname: '$f33Iron$fffKeeper', zone: 'World|Europe|Czechia', isSpectator: false }
-        ]
-      },
-      {
-        login: 'joust_duel_hub',
-        name: '$o$s$ff0Duel & Joust 1v1 $fffTraining Hub $888[EU-Central]',
-        title: 'SMStormJoust@nadeolabs',
-        environment: 'Storm',
-        script_name: 'ShootMania\\Joust\\Joust.Script.txt',
-        player_count: 2,
-        player_max: 16,
-        spectator_count: 0,
-        spectator_max: 8,
-        zone: 'World|Europe|Germany',
-        is_private: false,
-        is_channel: false,
-        map: 'Joust - Twin Pillars',
-        players: [
-          { login: 'professor_law', nickname: '$o$ff0.|Professor Law', zone: 'World|Europe|United Kingdom', isSpectator: false },
-          { login: 'sora_twe', nickname: '$0cf[TWE] $fffSora メ', zone: 'World|Europe|France', isSpectator: false }
-        ]
-      },
-      {
-        login: 'cardmelee_nucpocalypse',
-        name: '$o$s$f33CardMelee 4.6 $fff: Nucpocalypse $888[Public FFA]',
-        title: 'CardMelee@fadden',
-        environment: 'Storm',
-        script_name: 'Modes\\ShootMania\\CardMelee.Script.txt',
-        player_count: 0,
-        player_max: 20,
-        spectator_count: 0,
-        spectator_max: 10,
-        zone: 'World|Europe|France',
-        is_private: false,
-        is_channel: false,
-        map: 'CardMelee - Deck Arena',
-        players: []
-      },
-      {
-        login: 'infection_bunker_247',
-        name: '$o$s$3f3Infection 24/7 $fff• Zombie Survival & Escape',
-        title: 'Infection@dmark',
-        environment: 'Storm',
-        script_name: 'Modes\\ShootMania\\Infection.Script.txt',
-        player_count: 0,
-        player_max: 32,
-        spectator_count: 0,
-        spectator_max: 12,
-        zone: 'World|Europe|Germany',
-        is_private: false,
-        is_channel: false,
-        map: 'Infection - Sector 7G',
-        players: []
-      },
-      {
-        login: 'combo_2v2_arena',
-        name: '$o$s$0cfNadeolabs $fffCombo 2v2 Official Server',
-        title: 'SMStormCombo@nadeolabs',
-        environment: 'Storm',
-        script_name: 'ShootMania\\Combo\\Combo.Script.txt',
-        player_count: 0,
-        player_max: 8,
-        spectator_count: 0,
-        spectator_max: 4,
-        zone: 'World|Europe|France',
-        is_private: false,
-        is_channel: false,
-        map: 'Combo - Mirror Court',
-        players: []
-      }
-    ];
-  }
-
-  /* ==========================================================================
-     5. APPLICATION STATE & STORAGE
-     ========================================================================== */
-  const STORAGE_KEY = 'sm_tracker_settings_v1';
+  const AUTO_REFRESH_SEC = 60;
 
   const state = {
     theme: localStorage.getItem('sm_theme') || (window.matchMedia('(prefers-color-scheme: dark)').matches ? 'dark' : 'light'),
-    activeTab: 'servers', // 'servers' | 'players' | 'dictionary'
+    activeTab: 'servers', // 'servers' | 'dictionary'
     nameFormat: 'clean',  // 'clean' | 'colored' | 'raw'
     searchQuery: '',
     categoryFilter: 'all',
@@ -686,84 +459,45 @@
     sortBy: 'players_desc',
     scheduleDrawerOpen: false,
 
-    // API Connection State
-    apiStatus: 'live_sync', // 'live_api' | 'live_proxy' | 'custom_json' | 'live_sync'
-    apiStatusLabel: 'ShootMania Live Sync',
-    lastUpdated: new Date(),
+    // Data & API Connection State (never pre-populated with fake data)
+    dataMode: 'loading', // 'loading' | 'servers' | 'titles' | 'error'
+    apiStatus: 'live_proxy', // 'live_api' | 'live_proxy' | 'fallback'
+    apiStatusLabel: 'Syncing Live Data...',
+    apiErrorNote: '',
+    lastUpdated: null,
 
-    settings: loadSettings(),
     rawServers: [],
     normalizedServers: [],
-    onlinePlayers: [],
+    liveTitles: [],
     liveChannelOverride: null
   };
 
-  function loadSettings() {
-    try {
-      const saved = JSON.parse(localStorage.getItem(STORAGE_KEY) || '{}');
-      return {
-        endpointUrl: saved.endpointUrl || 'https://prod.live.maniaplanet.com/webservices/servers?environment=Storm&offset=0&length=100',
-        corsProxy: saved.corsProxy || 'allorigins', // 'none' | 'allorigins' | 'corsproxy'
-        bearerToken: saved.bearerToken || '',
-        autoRefreshSec: Number(saved.autoRefreshSec) || 60
-      };
-    } catch (e) {
-      return {
-        endpointUrl: 'https://prod.live.maniaplanet.com/webservices/servers?environment=Storm&offset=0&length=100',
-        corsProxy: 'allorigins',
-        bearerToken: '',
-        autoRefreshSec: 60
-      };
-    }
-  }
-
-  function saveSettings() {
-    try {
-      localStorage.setItem(STORAGE_KEY, JSON.stringify(state.settings));
-    } catch (e) {
-      // ignore storage quota errors
-    }
-  }
-
   /* ==========================================================================
-     6. DATA NORMALIZATION PIPELINE (STRICT SHOOTMANIA ONLY)
+     5. DATA NORMALIZATION PIPELINE (STRICT SHOOTMANIA ONLY)
      ========================================================================== */
   function normalizeServerList(rawArray) {
-    if (!Array.isArray(rawArray)) return [];
+    if (!Array.isArray(rawArray)) return;
 
-    // 1. Strictly filter out TrackMania and keep only ShootMania branch
+    // Strictly filter out TrackMania and keep only ShootMania branch
     const shootmaniaOnly = rawArray.filter((srv) => ShootManiaParser.isShootManiaServer(srv));
 
     const servers = shootmaniaOnly.map((srv) => {
       const rawName = String(srv.name || srv.server_name || srv.login || 'ShootMania Server');
-      const rawTitle = String(srv.title || srv.titleId || srv.title_uid || 'SMStorm@nadeo');
-      const rawScript = String(srv.script_name || srv.scriptName || srv.mode || '');
+      const rawTitleField = srv.title && typeof srv.title === 'object' ? (srv.title.id || srv.title.uid || srv.title.name || '') : srv.title;
+      const rawTitle = String(rawTitleField || srv.titleId || srv.title_uid || srv.titleUid || 'SMStorm@nadeo');
+      const rawScript = String(srv.script_name || srv.scriptName || srv.gamemode || srv.mode || '');
 
       const parsedTitle = ShootManiaParser.parseTitle(rawTitle);
       const cleanGamemode = ShootManiaParser.parseGamemode(rawScript, parsedTitle);
       const isChannel = ShootManiaParser.isChannelServer(srv);
 
-      const playerCount = Math.max(0, parseInt(srv.player_count ?? srv.playerCount ?? srv.nbPlayers ?? 0, 10) || 0);
-      const playerMax = Math.max(1, parseInt(srv.player_max ?? srv.playerMax ?? srv.maxPlayers ?? 32, 10) || 32);
+      const playerCount = Math.max(0, parseInt(srv.player_count ?? srv.playerCount ?? srv.playersCount ?? srv.nbPlayers ?? 0, 10) || 0);
+      const playerMax = Math.max(1, parseInt(srv.player_max ?? srv.playerMax ?? srv.playersMax ?? srv.maxPlayers ?? 32, 10) || 32);
       const spectatorCount = Math.max(0, parseInt(srv.spectator_count ?? srv.spectatorCount ?? srv.nbSpectators ?? 0, 10) || 0);
 
-      const rawPlayers = Array.isArray(srv.players || srv.playerList) ? (srv.players || srv.playerList) : [];
-      const normalizedPlayers = rawPlayers.map((p) => {
-        const nickRaw = String(p.nickname || p.name || p.login || 'Player');
-        return {
-          login: String(p.login || nickRaw.toLowerCase().replace(/[^a-z0-9_.-]/g, '')),
-          rawNickname: nickRaw,
-          cleanNickname: ManiaText.strip(nickRaw) || String(p.login || 'Player'),
-          coloredNicknameHtml: ManiaText.toHtml(nickRaw),
-          zone: ShootManiaParser.formatZone(p.zone || p.path),
-          isSpectator: Boolean(p.isSpectator ?? p.spectator ?? p.is_spectator)
-        };
-      });
-
       const login = String(srv.login || srv.server_login || 'sm_server');
-      const joinUrl = isChannel
-        ? `maniaplanet://#join=${encodeURIComponent(login)}@${encodeURIComponent(parsedTitle.raw)}`
-        : `maniaplanet://#join=${encodeURIComponent(login)}@${encodeURIComponent(parsedTitle.raw)}`;
+      const joinUrl = `maniaplanet://#join=${encodeURIComponent(login)}@${encodeURIComponent(parsedTitle.raw)}`;
+      const rawMap = srv.map && typeof srv.map === 'object' ? (srv.map.name || srv.map.uid || '') : (srv.map || srv.currentMap || '');
 
       return {
         login,
@@ -779,55 +513,226 @@
         playerCount,
         playerMax,
         spectatorCount,
-        zone: ShootManiaParser.formatZone(srv.zone || srv.path),
-        isPrivate: Boolean(srv.is_private ?? srv.isPrivate),
+        zone: ShootManiaParser.formatZone(srv.zone || srv.zonePath || srv.path),
+        isPrivate: Boolean(srv.is_private ?? srv.isPrivate ?? srv.private),
         isChannel,
-        mapClean: ManiaText.strip(srv.map || srv.currentMap || 'ShootMania Arena'),
+        mapClean: ManiaText.strip(String(rawMap)),
         joinUrl,
-        players: normalizedPlayers,
         programAuthor: srv.program_author || parsedTitle.author
       };
     });
 
-    // Flatten all online players across all ShootMania servers
-    const allPlayers = [];
-    for (const srv of servers) {
-      for (const p of srv.players) {
-        allPlayers.push({
-          ...p,
-          serverLogin: srv.login,
-          serverCleanName: srv.cleanName,
-          serverColoredHtml: srv.coloredNameHtml,
-          serverRawName: srv.rawName,
-          serverGamemode: srv.cleanGamemode,
-          serverTitle: srv.cleanTitle,
-          serverCategory: srv.category,
-          serverJoinUrl: srv.joinUrl,
-          isChannelPlayer: srv.isChannel
-        });
+    state.normalizedServers = servers;
+  }
+
+  function normalizeLiveTitles(rawTitles) {
+    if (!Array.isArray(rawTitles)) return [];
+    const seen = new Set();
+    const out = [];
+
+    for (const t of rawTitles) {
+      const titleId = String(t.titleId || t.id || '').trim();
+      if (!titleId || seen.has(titleId.toLowerCase())) continue;
+
+      // Strictly exclude TrackMania titles
+      if (!ShootManiaParser.isShootManiaServer({ title: titleId, environment: t.environment || '' })) {
+        continue;
       }
+      const lowerId = titleId.toLowerCase();
+      if (lowerId.includes('trackmania') || lowerId.startsWith('tm')) continue;
+
+      seen.add(lowerId);
+      const parsed = ShootManiaParser.parseTitle(titleId);
+      const rawDisplayName = String(t.name || '').trim();
+      const cleanName = ManiaText.strip(rawDisplayName) || parsed.cleanName;
+      const author = ManiaText.strip(String(t.author || '')) || parsed.author;
+      const onlinePlayers = Math.max(0, parseInt(t.onlinePlayers ?? t.playersOnline ?? 0, 10) || 0);
+
+      out.push({
+        titleId,
+        rawName: rawDisplayName || cleanName,
+        cleanName,
+        coloredNameHtml: ManiaText.toHtml(rawDisplayName || cleanName),
+        author,
+        category: parsed.category,
+        onlinePlayers,
+        webUrl: `https://www.maniaplanet.com/titles/${encodeURIComponent(titleId)}`,
+        joinUrl: `maniaplanet://#qjoin=${encodeURIComponent(titleId)}`
+      });
     }
 
-    state.normalizedServers = servers;
-    state.onlinePlayers = allPlayers;
-    state.lastUpdated = new Date();
+    return out;
   }
 
   /* ==========================================================================
-     7. LIVE FETCHING ENGINE (MANIAPLANET API + PUBLIC CHANNEL / TITLES PARSER)
+     6. PURE CLIENT-SIDE LIVE FETCHING ENGINE (MANIAPLANET API & WEB VIA JS)
      ========================================================================== */
-  function wrapWithProxy(targetUrl, proxyType, bustCache = false) {
-    const finalTarget = bustCache
-      ? `${targetUrl}${targetUrl.includes('?') ? '&' : '?'}_cb=${Date.now()}`
-      : targetUrl;
+  function buildCorsProxyRequest(targetUrl, proxyType) {
+    const sep = targetUrl.includes('?') ? '&' : '?';
+    const bustedUrl = `${targetUrl}${sep}_cb=${Date.now()}`;
 
-    if (proxyType === 'allorigins') {
-      return `https://api.allorigins.win/raw?url=${encodeURIComponent(finalTarget)}`;
+    if (proxyType === 'allorigins_json') {
+      return {
+        url: `https://api.allorigins.win/get?url=${encodeURIComponent(bustedUrl)}`,
+        isAllOriginsJson: true
+      };
     }
     if (proxyType === 'corsproxy') {
-      return `https://corsproxy.io/?${encodeURIComponent(finalTarget)}`;
+      return {
+        url: `https://corsproxy.io/?url=${encodeURIComponent(bustedUrl)}`,
+        isAllOriginsJson: false
+      };
     }
-    return finalTarget;
+    if (proxyType === 'codetabs') {
+      return {
+        url: `https://api.codetabs.com/v1/proxy?quest=${encodeURIComponent(bustedUrl)}`,
+        isAllOriginsJson: false
+      };
+    }
+    if (proxyType === 'allorigins_raw') {
+      return {
+        url: `https://api.allorigins.win/raw?url=${encodeURIComponent(bustedUrl)}`,
+        isAllOriginsJson: false
+      };
+    }
+    return { url: bustedUrl, isAllOriginsJson: false };
+  }
+
+  let lastWorkingCorsProxy = null;
+
+  async function fetchTextViaCorsProxies(targetUrl, validatorFn, timeoutMs = 7000) {
+    const baseProxies = ['allorigins_json', 'corsproxy', 'codetabs', 'allorigins_raw'];
+    const proxies = lastWorkingCorsProxy
+      ? [lastWorkingCorsProxy, ...baseProxies.filter((p) => p !== lastWorkingCorsProxy)]
+      : baseProxies;
+
+    for (const proxy of proxies) {
+      const { url, isAllOriginsJson } = buildCorsProxyRequest(targetUrl, proxy);
+      const controller = new AbortController();
+      const timer = setTimeout(() => controller.abort(), timeoutMs);
+      try {
+        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
+        clearTimeout(timer);
+        if (!res.ok) {
+          if (proxy !== 'allorigins_json' && (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404)) {
+            return null;
+          }
+          continue;
+        }
+
+        let payload = '';
+        if (isAllOriginsJson) {
+          const json = await res.json();
+          const httpCode = Number(json && json.status && json.status.http_code);
+          if (httpCode === 400 || httpCode === 401 || httpCode === 403 || httpCode === 404) {
+            return null; // Upstream explicitly rejected or does not exist; skip retrying other proxies
+          }
+          if (httpCode && httpCode >= 400) continue;
+          payload = json && typeof json.contents === 'string' ? json.contents : '';
+        } else {
+          payload = await res.text();
+        }
+
+        if (payload) {
+          const check = validatorFn ? validatorFn(payload) : true;
+          if (check === 'stop') return null;
+          if (check) {
+            lastWorkingCorsProxy = proxy;
+            return payload;
+          }
+        }
+      } catch (_) {
+        clearTimeout(timer);
+      }
+    }
+    return null;
+  }
+
+  async function fetchHtmlViaCorsProxies(targetUrl, validationMarker, timeoutMs = 7000) {
+    return fetchTextViaCorsProxies(
+      targetUrl,
+      (html) => html.length > 500 && (!validationMarker || html.toLowerCase().includes(validationMarker.toLowerCase())),
+      timeoutMs
+    );
+  }
+
+  function extractServerArray(json) {
+    if (Array.isArray(json)) return json;
+    if (json && Array.isArray(json.servers)) return json.servers;
+    if (json && Array.isArray(json.items)) return json.items;
+    if (json && Array.isArray(json.data)) return json.data;
+    return null;
+  }
+
+  /**
+   * Probes ManiaPlanet's documented Swagger endpoint GET /webservices/servers/online
+   * directly in the browser (plus via CORS proxies if direct browser CORS is blocked).
+   * Rejects HTML / error responses and keeps strictly Storm/ShootMania servers.
+   */
+  async function tryFetchAnonymousWsServers() {
+    const endpoints = [
+      'https://prod.live.maniaplanet.com/webservices/servers/online?environment=Storm&orderBy=playerCount&length=100',
+      'https://prod.live.maniaplanet.com/webservices/servers/online?orderBy=playerCount&length=100',
+      'https://prod.live.maniaplanet.com/webservices/servers/online'
+    ];
+
+    const parseCandidateServers = (text) => {
+      if (!text) return { isJson: false, servers: null };
+      const trimmed = text.trim();
+      if (!trimmed || trimmed.startsWith('<')) return { isJson: false, servers: null };
+      try {
+        const parsed = JSON.parse(trimmed);
+        const arr = extractServerArray(parsed);
+        if (arr) {
+          const smOnly = arr.filter((srv) => ShootManiaParser.isShootManiaServer(srv));
+          return { isJson: true, servers: smOnly.length > 0 ? smOnly : null };
+        }
+        return { isJson: true, servers: null };
+      } catch (_) {
+        return { isJson: false, servers: null };
+      }
+    };
+
+    for (const endpoint of endpoints) {
+      // 1) Fast direct browser attempt in case upstream permits CORS
+      const directController = new AbortController();
+      const directTimer = setTimeout(() => directController.abort(), 3000);
+      try {
+        const res = await fetch(endpoint, {
+          headers: { Accept: 'application/json' },
+          cache: 'no-store',
+          signal: directController.signal
+        });
+        clearTimeout(directTimer);
+        if (res.ok) {
+          const { isJson, servers } = parseCandidateServers(await res.text());
+          if (servers) return servers;
+          if (isJson) continue; // Valid JSON received directly without SM servers; try next endpoint
+        } else if (res.status === 400 || res.status === 401 || res.status === 403 || res.status === 404) {
+          continue;
+        }
+      } catch (_) {
+        clearTimeout(directTimer);
+      }
+
+      // 2) CORS proxy attempt (also stops cleanly on 400/401/403/404 or valid non-matching JSON)
+      let validParsed = null;
+      await fetchTextViaCorsProxies(
+        endpoint,
+        (payload) => {
+          const { isJson, servers } = parseCandidateServers(payload);
+          if (servers) {
+            validParsed = servers;
+            return true;
+          }
+          return isJson ? 'stop' : false;
+        },
+        5000
+      );
+      if (validParsed) return validParsed;
+    }
+
+    return null;
   }
 
   async function fetchManiaPlanetData() {
@@ -838,183 +743,197 @@
       const labelSpan = btnRefresh.querySelector('span');
       if (labelSpan) labelSpan.textContent = 'Refreshing...';
     }
-    if (statusText) statusText.textContent = 'Syncing...';
+    if (statusText) statusText.textContent = 'Fetching Live ManiaPlanet Data...';
 
-    let authRequired = false;
-
-    // 1. If using the default endpoint on GitHub Pages, check ./servers.json (updated by GitHub Actions)
-    const defaultEndpoint = 'https://prod.live.maniaplanet.com/webservices/servers?environment=Storm&offset=0&length=100';
-    if (state.settings.endpointUrl.trim() === defaultEndpoint && !state.settings.bearerToken) {
-      try {
-        const localRes = await fetch(`./servers.json?_cb=${Date.now()}`, { cache: 'no-store' });
-        if (localRes.ok) {
-          const localJson = await localRes.json();
-          const localArr = Array.isArray(localJson)
-            ? localJson
-            : localJson && Array.isArray(localJson.servers)
-              ? localJson.servers
-              : localJson && Array.isArray(localJson.items)
-                ? localJson.items
-                : null;
-          if (localArr && localArr.length > 0) {
-            state.rawServers = localArr;
-            state.apiStatus = 'live_api';
-            state.apiStatusLabel = 'Live (GitHub Action Sync)';
-            normalizeServerList(state.rawServers);
-            renderAll();
-            if (btnRefresh) {
-              btnRefresh.disabled = false;
-              const labelSpan = btnRefresh.querySelector('span');
-              if (labelSpan) labelSpan.textContent = 'Refresh';
-            }
-            return;
-          }
-        }
-      } catch (_) {
-        // servers.json not present yet; fall through to API / proxy
+    const finishRefresh = () => {
+      if (btnRefresh) {
+        btnRefresh.disabled = false;
+        const labelSpan = btnRefresh.querySelector('span');
+        if (labelSpan) labelSpan.textContent = 'Refresh';
       }
+    };
+
+    state.apiErrorNote = '';
+
+    // 1. Pure client-side live fetch directly in the browser (WS JSON + public pages via CORS proxies)
+    const [wsServers, titlesRes, channelTitle] = await Promise.all([
+      tryFetchAnonymousWsServers(),
+      tryFetchPublicShootManiaTitles(),
+      tryFetchPublicShootManiaChannel()
+    ]);
+
+    if (channelTitle) {
+      state.liveChannelOverride = channelTitle;
     }
 
-    try {
-      const headers = { Accept: 'application/json' };
-      if (state.settings.bearerToken) {
-        headers.Authorization = `Bearer ${state.settings.bearerToken.trim()}`;
-      }
-
-      const targetUrl = state.settings.endpointUrl.trim();
-      const fetchUrl = wrapWithProxy(targetUrl, state.settings.corsProxy, true);
-
-      const controller = new AbortController();
-      const timeoutId = setTimeout(() => controller.abort(), 6000);
-
-      const res = await fetch(fetchUrl, {
-        method: 'GET',
-        headers,
-        cache: 'no-store',
-        signal: controller.signal
-      });
-      clearTimeout(timeoutId);
-
-      if (res.status === 401 || res.status === 403) {
-        authRequired = true;
-      }
-
-      if (res.ok) {
-        const text = await res.text();
-        let json = null;
-        try {
-          json = JSON.parse(text);
-        } catch (_) {
-          json = null;
-        }
-
-        // Valid ManiaPlanet /servers array or { items: [...] } / { servers: [...] }
-        const serverArray = Array.isArray(json)
-          ? json
-          : json && Array.isArray(json.servers)
-            ? json.servers
-            : json && Array.isArray(json.items)
-              ? json.items
-              : null;
-
-        if (serverArray && serverArray.length > 0) {
-          state.rawServers = serverArray;
-          state.apiStatus = state.settings.corsProxy === 'none' ? 'live_api' : 'live_proxy';
-          state.apiStatusLabel = state.settings.corsProxy === 'none' ? 'Live ManiaPlanet API' : 'Live via Proxy';
-          normalizeServerList(state.rawServers);
-          renderAll();
-          if (btnRefresh) {
-            btnRefresh.disabled = false;
-            const labelSpan = btnRefresh.querySelector('span');
-            if (labelSpan) labelSpan.textContent = 'Refresh';
-          }
-          return;
-        }
-      }
-    } catch (_) {
-      // Fall through to public channel sync & synchronized snapshot
+    if (wsServers && wsServers.length > 0) {
+      state.dataMode = 'servers';
+      state.rawServers = wsServers;
+      state.liveTitles = titlesRes;
+      state.apiStatus = 'live_api';
+      state.apiStatusLabel = 'Live Servers (Browser JS)';
+      state.lastUpdated = new Date();
+      normalizeServerList(state.rawServers);
+      renderAll();
+      finishRefresh();
+      return;
     }
 
-    // Secondary attempt: check public ManiaPlanet homepage for live ShootMania Channel program title
-    let channelSynced = false;
-    if (state.settings.corsProxy !== 'none') {
-      channelSynced = await tryFetchPublicShootManiaChannel();
+    if (titlesRes.length > 0) {
+      state.dataMode = 'titles';
+      state.rawServers = [];
+      state.normalizedServers = [];
+      state.liveTitles = titlesRes;
+      state.apiStatus = 'live_api';
+      state.apiStatusLabel = 'Live Titles (Browser JS)';
+      state.lastUpdated = new Date();
+      renderAll();
+      finishRefresh();
+      return;
     }
 
-    // Ensure our ShootMania servers & hourly channel rotation are populated and fresh
-    state.rawServers = buildDefaultShootManiaServers();
-    if (state.liveChannelOverride) {
-      const ch = state.rawServers.find((s) => s.is_channel);
-      if (ch) {
-        ch.name = `$o$s$f70ShootMania Live $fff— $ff0${state.liveChannelOverride}`;
-        const matchedSlot = HOURLY_CHANNEL_PROGRAMS.find((slot) =>
-          slot.title.toLowerCase() === state.liveChannelOverride.toLowerCase() ||
-          state.liveChannelOverride.toLowerCase().includes(slot.title.toLowerCase())
-        );
-        if (matchedSlot) {
-          ch.title = matchedSlot.rawTitleId;
-          ch.script_name = matchedSlot.rawScript;
-          ch.program_author = matchedSlot.author;
-          ch.map = matchedSlot.map;
-        }
-      }
-    }
-
-    if (authRequired && !state.settings.bearerToken) {
-      state.apiStatus = 'fallback';
-      state.apiStatusLabel = channelSynced ? 'Channel Live (API Needs Token)' : 'Snapshot (API Needs Token)';
-    } else {
-      state.apiStatus = 'live_sync';
-      state.apiStatusLabel = channelSynced ? 'Channel Live Sync' : 'ShootMania Live Sync';
-    }
-
-    normalizeServerList(state.rawServers);
+    // 2. Nothing reachable — show honest empty/offline state (zero fabricated data)
+    state.liveChannelOverride = channelTitle || null;
+    state.dataMode = 'error';
+    state.rawServers = [];
+    state.normalizedServers = [];
+    state.liveTitles = [];
+    state.apiStatus = 'fallback';
+    state.apiStatusLabel = 'Live Sync Unavailable';
+    state.lastUpdated = new Date();
     renderAll();
+    finishRefresh();
+  }
 
-    if (btnRefresh) {
-      btnRefresh.disabled = false;
-      const labelSpan = btnRefresh.querySelector('span');
-      if (labelSpan) labelSpan.textContent = 'Refresh';
+  function parseShootManiaTitlesHtml(html) {
+    const doc = new DOMParser().parseFromString(html, 'text/html');
+    const links = Array.from(doc.querySelectorAll('a[href*="/titles/"]'));
+    const byId = new Map();
+
+    for (const a of links) {
+      const href = a.getAttribute('href') || '';
+      const idMatch = href.match(/\/titles\/([^/?#]+)/i);
+      if (!idMatch) continue;
+      const titleId = decodeURIComponent(idMatch[1]).trim();
+      if (!titleId || titleId.includes('filters')) continue;
+
+      // Walk up cautiously to the individual card container (stop before enclosing multiple title cards)
+      let card = a;
+      let blockText = '';
+      for (let depth = 0; depth < 6 && card; depth++) {
+        const distinctIdsInNode = new Set(
+          Array.from(card.querySelectorAll('a[href*="/titles/"]'))
+            .map((el) => {
+              const m = (el.getAttribute('href') || '').match(/\/titles\/([^/?#]+)/i);
+              return m ? decodeURIComponent(m[1]).trim().toLowerCase() : '';
+            })
+            .filter(Boolean)
+        );
+        if (distinctIdsInNode.size > 1) break;
+
+        const txt = (card.textContent || '').replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (/\d+\s+online\s+players?/i.test(txt)) {
+          blockText = txt;
+          break;
+        }
+        card = card.parentElement;
+      }
+      if (!blockText) continue;
+
+      const countMatch = blockText.match(/(\d+)\s+online\s+players?/i);
+      if (!countMatch) continue;
+
+      const onlinePlayers = parseInt(countMatch[1], 10) || 0;
+
+      // Prefer non-empty text anchor inside this card so image-wrapping anchors don't shadow the title name
+      let linkText = (a.textContent || '').replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
+      if (!linkText && card) {
+        const siblingTextLink = Array.from(card.querySelectorAll('a[href*="/titles/"]'))
+          .map((el) => (el.textContent || '').replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim())
+          .find(Boolean);
+        if (siblingTextLink) linkText = siblingTextLink;
+      }
+
+      const beforeCount = blockText.slice(0, countMatch.index).trim();
+      let author = titleId.includes('@') ? titleId.split('@')[1] : 'Community';
+      if (linkText && beforeCount.startsWith(linkText)) {
+        const rem = beforeCount.slice(linkText.length).trim();
+        if (rem) author = rem;
+      }
+
+      const key = titleId.toLowerCase();
+      const existing = byId.get(key);
+      if (!existing || (!existing._hasNamedLink && linkText)) {
+        byId.set(key, {
+          titleId,
+          name: linkText || titleId.split('@')[0],
+          author,
+          onlinePlayers,
+          _hasNamedLink: Boolean(linkText)
+        });
+      }
     }
+
+    return Array.from(byId.values());
   }
 
   /**
-   * Attempts to read the public ManiaPlanet homepage ("Currently on the Maniaplanet Channels -> Shootmania Live")
-   * via CORS proxy to sync the live channel program title if available.
+   * Fetches real live ShootMania title packs and online player counts from
+   * https://www.maniaplanet.com/titles?filters%5B0%5D=shootmania&orderBy=onlinePlayers (pages 1 & 2)
+   * purely via browser JavaScript.
    */
-  async function tryFetchPublicShootManiaChannel() {
-    const proxies = state.settings.corsProxy === 'allorigins'
-      ? ['allorigins', 'corsproxy']
-      : [state.settings.corsProxy, 'allorigins'];
+  async function tryFetchPublicShootManiaTitles() {
+    const pages = [1, 2];
+    const htmlResults = await Promise.all(
+      pages.map((p) =>
+        fetchHtmlViaCorsProxies(
+          `https://www.maniaplanet.com/titles?filters%5B0%5D=shootmania&orderBy=onlinePlayers&page=${p}`,
+          'online player'
+        )
+      )
+    );
 
-    for (const proxy of proxies) {
-      try {
-        const url = wrapWithProxy('https://maniaplanet.com/', proxy, true);
-        const controller = new AbortController();
-        const timer = setTimeout(() => controller.abort(), 4500);
-        const res = await fetch(url, { cache: 'no-store', signal: controller.signal });
-        clearTimeout(timer);
-        if (!res.ok) continue;
-
-        const html = await res.text();
-        const doc = new DOMParser().parseFromString(html, 'text/html');
-        const bodyText = (doc.body && doc.body.textContent) ? doc.body.textContent : html.replace(/<[^>]+>/g, ' ');
-        const normalized = bodyText.replace(/\s+/g, ' ');
-
-        const match = normalized.match(/Shootmania Live\s+LIVE\s+(.+?)(?:\s+S\d+\s*E\d+|\s+Trackmania Live)/i);
-        if (match && match[1]) {
-          // Strip private-use icon font glyphs (e.g. FontAwesome flag icon) and extra whitespace
-          const cleaned = match[1].replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
-          if (cleaned) {
-            state.liveChannelOverride = cleaned;
-            return true;
-          }
-        }
-      } catch (_) {
-        // try next proxy
+    const combinedRaw = [];
+    for (const html of htmlResults) {
+      if (html) {
+        combinedRaw.push(...parseShootManiaTitlesHtml(html));
       }
     }
-    return false;
+
+    return normalizeLiveTitles(combinedRaw);
+  }
+
+  /**
+   * Reads the public ManiaPlanet homepage ("Currently on the Maniaplanet Channels -> Shootmania Live")
+   * and ShootMania channel page via CORS proxy to retrieve the currently airing program title.
+   */
+  async function tryFetchPublicShootManiaChannel() {
+    const homeHtml = await fetchHtmlViaCorsProxies('https://maniaplanet.com/', 'Shootmania Live', 6500);
+    if (homeHtml) {
+      const doc = new DOMParser().parseFromString(homeHtml, 'text/html');
+      const bodyText = (doc.body && doc.body.textContent) ? doc.body.textContent : homeHtml.replace(/<[^>]+>/g, ' ');
+      const normalized = bodyText.replace(/\s+/g, ' ');
+
+      const match = normalized.match(/Shootmania\s+Live\s+LIVE\s+(.+?)(?=\s+S\d+\s*E\d+|\s+Trackmania\s+Live|\s+Popular\s+Titles|$)/i);
+      if (match && match[1]) {
+        const cleaned = match[1].replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleaned) return cleaned;
+      }
+    }
+
+    const chHtml = await fetchHtmlViaCorsProxies('https://www.maniaplanet.com/channels/shootmania', 'Shootmania', 6500);
+    if (chHtml) {
+      const doc = new DOMParser().parseFromString(chHtml, 'text/html');
+      const bodyText = (doc.body && doc.body.textContent) ? doc.body.textContent : chHtml.replace(/<[^>]+>/g, ' ');
+      const normalized = bodyText.replace(/\s+/g, ' ');
+      const match = normalized.match(/LIVE\s+(.+?)(?=\s+S\d+\s*E\d+|\s+Schedule|\s+Programs|$)/i);
+      if (match && match[1]) {
+        const cleaned = match[1].replace(/[\uE000-\uF8FF]/g, ' ').replace(/\s+/g, ' ').trim();
+        if (cleaned && cleaned.length < 80) return cleaned;
+      }
+    }
+
+    return null;
   }
 
   /* ==========================================================================
@@ -1043,7 +962,7 @@
     if (!dot || !text) return;
 
     dot.className = 'status-dot';
-    if (state.apiStatus === 'live_proxy' || state.apiStatus === 'custom_json') {
+    if (state.apiStatus === 'live_proxy') {
       dot.classList.add('status-proxy');
     } else if (state.apiStatus === 'fallback') {
       dot.classList.add('status-fallback');
@@ -1055,68 +974,150 @@
   }
 
   function renderSummaryKPIs() {
-    const servers = state.normalizedServers;
-    const activeServers = servers.filter((s) => s.playerCount > 0);
-    const totalPlayers = servers.reduce((acc, s) => acc + s.playerCount, 0);
-    const totalSpecs = servers.reduce((acc, s) => acc + s.spectatorCount, 0);
+    const totalPlayersEl = document.getElementById('kpi-total-players');
+    const totalSpecsEl = document.getElementById('kpi-total-specs');
+    const serversTitleEl = document.getElementById('kpi-servers-title');
+    const onlineServersEl = document.getElementById('kpi-online-servers');
+    const serversSubEl = document.getElementById('kpi-servers-sub');
+    const topModeEl = document.getElementById('kpi-top-mode');
+    const topModeSubEl = document.getElementById('kpi-top-mode-sub');
 
-    // Find most populated ShootMania gamemode
-    const modeCounts = {};
-    for (const s of servers) {
-      modeCounts[s.cleanGamemode] = (modeCounts[s.cleanGamemode] || 0) + s.playerCount;
-    }
-    let topMode = 'Obstacle / Siege';
-    let topModePlayers = 0;
-    for (const [m, count] of Object.entries(modeCounts)) {
-      if (count > topModePlayers) {
-        topMode = m;
-        topModePlayers = count;
+    if (state.dataMode === 'servers') {
+      const servers = state.normalizedServers;
+      const activeServers = servers.filter((s) => s.playerCount > 0);
+      const totalPlayers = servers.reduce((acc, s) => acc + s.playerCount, 0);
+      const totalSpecs = servers.reduce((acc, s) => acc + s.spectatorCount, 0);
+
+      const modeCounts = {};
+      for (const s of servers) {
+        modeCounts[s.cleanGamemode] = (modeCounts[s.cleanGamemode] || 0) + s.playerCount;
       }
+      let topMode = '—';
+      let topModePlayers = 0;
+      for (const [m, count] of Object.entries(modeCounts)) {
+        if (count > topModePlayers) {
+          topMode = m;
+          topModePlayers = count;
+        }
+      }
+
+      if (totalPlayersEl) totalPlayersEl.textContent = totalPlayers;
+      if (totalSpecsEl) {
+        totalSpecsEl.textContent = totalSpecs > 0 ? `+ ${totalSpecs} spectators watching` : 'From live server list';
+      }
+      if (serversTitleEl) serversTitleEl.innerHTML = '<span>Online Servers</span>';
+      if (onlineServersEl) onlineServersEl.textContent = `${activeServers.length} / ${servers.length}`;
+      if (serversSubEl) serversSubEl.textContent = `${activeServers.length} populated, ${servers.length} ShootMania`;
+      if (topModeEl) topModeEl.textContent = topMode;
+      if (topModeSubEl) topModeSubEl.textContent = topModePlayers > 0 ? `${topModePlayers} players in mode` : 'No active players';
+    } else if (state.dataMode === 'titles') {
+      const titles = state.liveTitles;
+      const activeTitles = titles.filter((t) => t.onlinePlayers > 0);
+      const totalPlayers = titles.reduce((acc, t) => acc + t.onlinePlayers, 0);
+
+      let topTitle = '—';
+      let topCount = 0;
+      for (const t of titles) {
+        if (t.onlinePlayers > topCount) {
+          topTitle = t.cleanName;
+          topCount = t.onlinePlayers;
+        }
+      }
+
+      if (totalPlayersEl) totalPlayersEl.textContent = totalPlayers;
+      if (totalSpecsEl) totalSpecsEl.textContent = 'Live across ShootMania title packs';
+      if (serversTitleEl) serversTitleEl.innerHTML = '<span>Active Title Packs</span>';
+      if (onlineServersEl) onlineServersEl.textContent = `${activeTitles.length} / ${titles.length}`;
+      if (serversSubEl) serversSubEl.textContent = `${activeTitles.length} with players on maniaplanet.com`;
+      if (topModeEl) topModeEl.textContent = topTitle;
+      if (topModeSubEl) {
+        topModeSubEl.textContent = topCount > 0 ? `${topCount} online players` : '0 online players right now';
+      }
+    } else {
+      if (totalPlayersEl) totalPlayersEl.textContent = '—';
+      if (totalSpecsEl) {
+        totalSpecsEl.textContent = state.dataMode === 'error' ? 'Live sync unavailable' : 'Fetching live ManiaPlanet counts';
+      }
+      if (serversTitleEl) serversTitleEl.innerHTML = '<span>Active Servers</span>';
+      if (onlineServersEl) onlineServersEl.textContent = '—';
+      if (serversSubEl) serversSubEl.textContent = 'Storm environment only';
+      if (topModeEl) topModeEl.textContent = '—';
+      if (topModeSubEl) topModeSubEl.textContent = 'Waiting for live data';
     }
-
-    document.getElementById('kpi-total-players').textContent = totalPlayers;
-    document.getElementById('kpi-total-specs').textContent =
-      totalSpecs > 0 ? `+ ${totalSpecs} spectators watching` : 'Active in ShootMania matches';
-
-    document.getElementById('kpi-online-servers').textContent = `${activeServers.length} / ${servers.length}`;
-    document.getElementById('kpi-servers-sub').textContent = `${activeServers.length} populated, ${servers.length} online`;
-
-    document.getElementById('kpi-top-mode').textContent = topMode;
-    document.getElementById('kpi-top-mode-sub').textContent = `${topModePlayers} players in mode`;
 
     const rot = getChannelRotationState();
-    document.getElementById('kpi-channel-timer').textContent = rot.countdownFormatted;
-    document.getElementById('kpi-channel-sub').textContent = `Next: ${rot.nextSlot.title}`;
+    const timerEl = document.getElementById('kpi-channel-timer');
+    const subEl = document.getElementById('kpi-channel-sub');
+    if (timerEl) timerEl.textContent = rot.countdownFormatted;
+    if (subEl) subEl.textContent = `Schedule ref: ${rot.nextSlot.title}`;
   }
 
   function renderChannelSpotlight() {
     const rot = getChannelRotationState();
-    const channelSrv =
-      state.normalizedServers.find((s) => s.isChannel) ||
-      {
-        login: 'sm_channel_live',
-        cleanName: `ShootMania Live — ${rot.currentSlot.title}`,
-        cleanGamemode: ShootManiaParser.parseGamemode(rot.currentSlot.rawScript, ShootManiaParser.parseTitle(rot.currentSlot.rawTitleId)),
-        cleanTitle: ShootManiaParser.parseTitle(rot.currentSlot.rawTitleId).cleanName,
-        rawScript: rot.currentSlot.rawScript,
-        rawTitle: rot.currentSlot.rawTitleId,
-        playerCount: 14,
-        playerMax: 32,
-        spectatorCount: 2,
-        mapClean: rot.currentSlot.map,
-        programAuthor: rot.currentSlot.author,
-        joinUrl: `maniaplanet://#join=sm_channel_live@${encodeURIComponent(rot.currentSlot.rawTitleId)}`
-      };
+    const channelSrv = state.normalizedServers.find((s) => s.isChannel) || null;
+    const liveTitle = state.liveChannelOverride || null;
 
-    const programTitle = state.liveChannelOverride || rot.currentSlot.title;
+    const matchedSlot = liveTitle
+      ? HOURLY_CHANNEL_PROGRAMS.find((slot) =>
+          slot.title.toLowerCase() === liveTitle.toLowerCase() ||
+          liveTitle.toLowerCase().includes(slot.title.toLowerCase()) ||
+          slot.title.toLowerCase().includes(liveTitle.toLowerCase())
+        )
+      : null;
+
+    const programTitle = channelSrv
+      ? channelSrv.cleanName
+      : liveTitle || rot.currentSlot.title;
+
+    const refSlot = matchedSlot || rot.currentSlot;
+    const refTitleParsed = ShootManiaParser.parseTitle(channelSrv ? channelSrv.rawTitle : refSlot.rawTitleId);
+    const cleanMode = channelSrv
+      ? channelSrv.cleanGamemode
+      : liveTitle && !matchedSlot
+        ? ManiaText.strip(liveTitle)
+        : ShootManiaParser.parseGamemode(refSlot.rawScript, refTitleParsed);
+
     document.getElementById('channel-program-name').textContent = programTitle;
-    document.getElementById('channel-clean-mode').textContent = channelSrv.cleanGamemode;
-    document.getElementById('channel-clean-title').textContent = `Title Pack: ${channelSrv.cleanTitle}`;
-    document.getElementById('channel-raw-api-script').textContent = `API Script: ${channelSrv.rawScript}`;
-    document.getElementById('channel-author').textContent = `By ${channelSrv.programAuthor || rot.currentSlot.author}`;
-    document.getElementById('channel-map').textContent = `Map: ${channelSrv.mapClean}`;
+    document.getElementById('channel-clean-mode').textContent = cleanMode;
+    document.getElementById('channel-clean-title').textContent =
+      channelSrv || matchedSlot || !liveTitle
+        ? `Title Pack: ${refTitleParsed.cleanName}`
+        : 'Source: ManiaPlanet Channels';
 
-    document.getElementById('channel-players-val').textContent = `${channelSrv.playerCount} / ${channelSrv.playerMax}`;
+    const scriptEl = document.getElementById('channel-raw-api-script');
+    if (scriptEl) {
+      scriptEl.textContent = channelSrv
+        ? `API Script: ${channelSrv.rawScript}`
+        : matchedSlot
+          ? `Script Ref: ${refSlot.rawScript}`
+          : liveTitle
+            ? 'Live from maniaplanet.com'
+            : 'Reference UTC Slot';
+    }
+
+    document.getElementById('channel-author').textContent = channelSrv
+      ? `By ${channelSrv.programAuthor || refTitleParsed.author}`
+      : liveTitle
+        ? (matchedSlot ? `Host: ${matchedSlot.author} • Synced live` : 'Synced live from maniaplanet.com')
+        : 'Schedule reference only';
+
+    const mapEl = document.getElementById('channel-map');
+    const mapSep = document.getElementById('channel-map-sep');
+    if (mapEl && mapSep) {
+      if (channelSrv && channelSrv.mapClean) {
+        mapEl.textContent = `Map: ${channelSrv.mapClean}`;
+        mapEl.style.display = 'inline';
+        mapSep.style.display = 'inline';
+      } else {
+        mapEl.textContent = '';
+        mapEl.style.display = 'none';
+        mapSep.style.display = 'none';
+      }
+    }
+
+    document.getElementById('channel-players-val').textContent = channelSrv
+      ? `${channelSrv.playerCount} / ${channelSrv.playerMax}`
+      : '—';
     document.getElementById('channel-window-utc').textContent = rot.windowUtc;
     document.getElementById('channel-countdown').textContent = rot.countdownFormatted;
     document.getElementById('channel-progress-bar').style.width = `${rot.progressPct.toFixed(1)}%`;
@@ -1132,24 +1133,28 @@
 
     const joinBtn = document.getElementById('channel-join-btn');
     if (joinBtn) {
-      joinBtn.setAttribute('href', channelSrv.joinUrl);
+      joinBtn.setAttribute(
+        'href',
+        channelSrv ? channelSrv.joinUrl : `maniaplanet://#qjoin=${encodeURIComponent(refSlot.rawTitleId)}`
+      );
+      joinBtn.textContent = channelSrv ? 'Join Channel Server' : 'Launch in ShootMania';
     }
 
-    // Update 24h schedule grid if open
+    // Update 24h schedule grid if present
     const gridEl = document.getElementById('channel-schedule-grid');
     if (gridEl) {
       let html = '';
       for (const slot of HOURLY_CHANNEL_PROGRAMS) {
         const isCurrent = slot.hourUtc === rot.utcHour;
         const parsedTitle = ShootManiaParser.parseTitle(slot.rawTitleId);
-        const cleanMode = ShootManiaParser.parseGamemode(slot.rawScript, parsedTitle);
+        const slotMode = ShootManiaParser.parseGamemode(slot.rawScript, parsedTitle);
         const hStart = String(slot.hourUtc).padStart(2, '0') + ':00';
         const hEnd = String((slot.hourUtc + 1) % 24).padStart(2, '0') + ':00';
         html += `
           <div class="schedule-slot ${isCurrent ? 'active-slot' : ''}">
-            <span class="slot-time">${hStart} – ${hEnd} UTC ${isCurrent ? '• LIVE NOW' : ''}</span>
+            <span class="slot-time">${hStart} – ${hEnd} UTC ${isCurrent ? '• WINDOW' : ''}</span>
             <span class="slot-name">${ManiaText.escapeHtml(slot.title)}</span>
-            <span class="server-raw-sub">${ManiaText.escapeHtml(cleanMode)} • ${ManiaText.escapeHtml(parsedTitle.cleanName)}</span>
+            <span class="server-raw-sub">${ManiaText.escapeHtml(slotMode)} • ${ManiaText.escapeHtml(parsedTitle.cleanName)}</span>
           </div>
         `;
       }
@@ -1173,13 +1178,11 @@
         srv.rawTitle.toLowerCase().includes(q) ||
         srv.rawScript.toLowerCase().includes(q) ||
         srv.login.toLowerCase().includes(q) ||
-        srv.mapClean.toLowerCase().includes(q) ||
-        srv.players.some((p) => p.cleanNickname.toLowerCase().includes(q) || p.login.toLowerCase().includes(q))
+        srv.mapClean.toLowerCase().includes(q)
       );
     });
 
     filtered.sort((a, b) => {
-      // Always keep the ShootMania Live Channel server pinned at top when sorting by players
       if (state.sortBy === 'players_desc') {
         if (a.isChannel !== b.isChannel) return a.isChannel ? -1 : 1;
         if (b.playerCount !== a.playerCount) return b.playerCount - a.playerCount;
@@ -1201,158 +1204,261 @@
     return filtered;
   }
 
-  function renderServersTable() {
-    const tbody = document.getElementById('servers-tbody');
-    const countBadge = document.getElementById('tab-count-servers');
-    const filtered = getFilteredAndSortedServers();
-
-    if (countBadge) countBadge.textContent = filtered.length;
-    if (!tbody) return;
-
-    if (filtered.length === 0) {
-      tbody.innerHTML = `
-        <tr>
-          <td colspan="6" class="empty-state">
-            No ShootMania servers match your current filter criteria.
-          </td>
-        </tr>
-      `;
-      return;
-    }
-
-    let html = '';
-    for (const srv of filtered) {
-      const pct = Math.min(100, Math.round((srv.playerCount / srv.playerMax) * 100));
-      const displayName = formatServerOrPlayerName(srv.cleanName, srv.coloredNameHtml, srv.rawName);
-      const badgeClass = getCategoryBadgeClass(srv.category);
-
-      // Render inline player chips if server has players
-      let playerChipsHtml = '';
-      if (srv.players.length > 0) {
-        const previewPlayers = srv.players.slice(0, 8);
-        const chips = previewPlayers
-          .map((p) => {
-            const label = formatServerOrPlayerName(p.cleanNickname, p.coloredNicknameHtml, p.rawNickname);
-            return `<span class="player-chip" title="Login: ${ManiaText.escapeHtml(p.login)}">${label}${p.isSpectator ? ' • Spec' : ''}</span>`;
-          })
-          .join('');
-        const extra = srv.players.length > 8 ? `<span class="player-chip">+${srv.players.length - 8} more</span>` : '';
-        playerChipsHtml = `<div class="inline-players-list">${chips}${extra}</div>`;
-      }
-
-      html += `
-        <tr class="${srv.isChannel ? 'is-channel-row' : ''}">
-          <td>
-            <div class="server-name-cell">
-              <div class="server-title-line">
-                ${srv.isChannel ? '<span class="live-indicator" style="font-size:0.65rem;padding:0.1rem 0.45rem;">CHANNEL</span>' : ''}
-                ${srv.isPrivate ? '<span class="next-pill" title="Password Protected">Private</span>' : ''}
-                <span>${displayName}</span>
-              </div>
-              <div class="server-raw-sub">
-                login: ${ManiaText.escapeHtml(srv.login)} • map: ${ManiaText.escapeHtml(srv.mapClean)}
-              </div>
-              ${playerChipsHtml}
-            </div>
-          </td>
-          <td>
-            <span class="mode-badge ${badgeClass}">${ManiaText.escapeHtml(srv.cleanGamemode)}</span>
-            <span class="title-pack-sub mono" title="Raw API script_name">${ManiaText.escapeHtml(srv.rawScript)}</span>
-          </td>
-          <td>
-            <span style="font-weight:600;">${ManiaText.escapeHtml(srv.cleanTitle)}</span>
-            <span class="title-pack-sub mono" title="Raw API titleId">${ManiaText.escapeHtml(srv.rawTitle)}</span>
-          </td>
-          <td>
-            <span style="font-size:0.8rem;color:var(--text-secondary);">${ManiaText.escapeHtml(srv.zone)}</span>
-          </td>
-          <td>
-            <div class="player-count-wrap">
-              <div class="player-count-nums">
-                <span class="player-active-num ${srv.playerCount > 0 ? 'has-players' : ''}">${srv.playerCount}</span>
-                <span class="player-max-num">/ ${srv.playerMax}${srv.spectatorCount > 0 ? ` +${srv.spectatorCount} spec` : ''}</span>
-              </div>
-              <div class="mini-bar">
-                <div class="mini-bar-fill ${srv.isChannel ? 'fill-channel' : ''}" style="width:${pct}%"></div>
-              </div>
-            </div>
-          </td>
-          <td style="text-align:right;">
-            <a href="${ManiaText.escapeHtml(srv.joinUrl)}" class="btn btn-sm ${srv.isChannel ? 'btn-primary' : ''}" title="Launch in ManiaPlanet">
-              Join
-            </a>
-          </td>
-        </tr>
-      `;
-    }
-
-    tbody.innerHTML = html;
-  }
-
-  function renderOnlinePlayersView() {
-    const grid = document.getElementById('players-grid');
-    const countBadge = document.getElementById('tab-count-players');
+  function getFilteredAndSortedTitles() {
     const q = state.searchQuery.toLowerCase().trim();
-
-    const filteredPlayers = state.onlinePlayers.filter((p) => {
-      if (state.categoryFilter !== 'all') {
-        if (state.categoryFilter === 'channel' && !p.isChannelPlayer) return false;
-        if (state.categoryFilter !== 'channel' && p.serverCategory !== state.categoryFilter) return false;
+    const filtered = state.liveTitles.filter((t) => {
+      if (state.hideEmpty && t.onlinePlayers === 0) return false;
+      if (state.categoryFilter !== 'all' && state.categoryFilter !== 'channel') {
+        if (t.category !== state.categoryFilter) return false;
+      } else if (state.categoryFilter === 'channel') {
+        return false;
       }
       if (!q) return true;
       return (
-        p.cleanNickname.toLowerCase().includes(q) ||
-        p.login.toLowerCase().includes(q) ||
-        p.serverCleanName.toLowerCase().includes(q) ||
-        p.serverGamemode.toLowerCase().includes(q) ||
-        p.zone.toLowerCase().includes(q)
+        t.cleanName.toLowerCase().includes(q) ||
+        t.titleId.toLowerCase().includes(q) ||
+        t.author.toLowerCase().includes(q) ||
+        t.category.toLowerCase().includes(q)
       );
     });
 
-    if (countBadge) countBadge.textContent = filteredPlayers.length;
-    if (!grid) return;
+    filtered.sort((a, b) => {
+      if (state.sortBy === 'players_desc') {
+        if (b.onlinePlayers !== a.onlinePlayers) return b.onlinePlayers - a.onlinePlayers;
+        return a.cleanName.localeCompare(b.cleanName);
+      }
+      if (state.sortBy === 'players_asc') {
+        if (a.onlinePlayers !== b.onlinePlayers) return a.onlinePlayers - b.onlinePlayers;
+        return a.cleanName.localeCompare(b.cleanName);
+      }
+      if (state.sortBy === 'name_asc') {
+        return a.cleanName.localeCompare(b.cleanName);
+      }
+      if (state.sortBy === 'mode_asc') {
+        return a.category.localeCompare(b.category) || a.cleanName.localeCompare(b.cleanName);
+      }
+      return 0;
+    });
 
-    if (filteredPlayers.length === 0) {
-      grid.innerHTML = `
-        <div class="empty-state" style="grid-column: 1 / -1;">
-          No currently online ShootMania players match your search filter.
-        </div>
-      `;
+    return filtered;
+  }
+
+  function renderServersTable() {
+    const tbody = document.getElementById('servers-tbody');
+    const thead = document.getElementById('servers-thead');
+    const noticeEl = document.getElementById('servers-notice');
+    const tabLabelEl = document.getElementById('tab-label-servers');
+    const countBadge = document.getElementById('tab-count-servers');
+    if (!tbody) return;
+
+    // Case 1: Live dedicated server list from /webservices/servers/online
+    if (state.dataMode === 'servers') {
+      if (tabLabelEl) tabLabelEl.textContent = 'Online Servers';
+      if (noticeEl) noticeEl.innerHTML = '';
+      if (thead) {
+        thead.innerHTML = `
+          <tr>
+            <th>Server Name</th>
+            <th>Gamemode</th>
+            <th>Title Pack</th>
+            <th>Zone</th>
+            <th>Players</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        `;
+      }
+
+      const filtered = getFilteredAndSortedServers();
+      if (countBadge) countBadge.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">
+              No ShootMania servers match your current filter criteria.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      let html = '';
+      for (const srv of filtered) {
+        const pct = Math.min(100, Math.round((srv.playerCount / srv.playerMax) * 100));
+        const displayName = formatServerOrPlayerName(srv.cleanName, srv.coloredNameHtml, srv.rawName);
+        const badgeClass = getCategoryBadgeClass(srv.category);
+
+        html += `
+          <tr class="${srv.isChannel ? 'is-channel-row' : ''}">
+            <td>
+              <div class="server-name-cell">
+                <div class="server-title-line">
+                  ${srv.isChannel ? '<span class="live-indicator" style="font-size:0.65rem;padding:0.1rem 0.45rem;">CHANNEL</span>' : ''}
+                  ${srv.isPrivate ? '<span class="next-pill" title="Password Protected">Private</span>' : ''}
+                  <span>${displayName}</span>
+                </div>
+                <div class="server-raw-sub">
+                  login: ${ManiaText.escapeHtml(srv.login)}${srv.mapClean ? ` • map: ${ManiaText.escapeHtml(srv.mapClean)}` : ''}
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="mode-badge ${badgeClass}">${ManiaText.escapeHtml(srv.cleanGamemode)}</span>
+              <span class="title-pack-sub mono" title="Raw API script_name">${ManiaText.escapeHtml(srv.rawScript)}</span>
+            </td>
+            <td>
+              <span style="font-weight:600;">${ManiaText.escapeHtml(srv.cleanTitle)}</span>
+              <span class="title-pack-sub mono" title="Raw API titleId">${ManiaText.escapeHtml(srv.rawTitle)}</span>
+            </td>
+            <td>
+              <span style="font-size:0.8rem;color:var(--text-secondary);">${ManiaText.escapeHtml(srv.zone)}</span>
+            </td>
+            <td>
+              <div class="player-count-wrap">
+                <div class="player-count-nums">
+                  <span class="player-active-num ${srv.playerCount > 0 ? 'has-players' : ''}">${srv.playerCount}</span>
+                  <span class="player-max-num">/ ${srv.playerMax}${srv.spectatorCount > 0 ? ` +${srv.spectatorCount} spec` : ''}</span>
+                </div>
+                <div class="mini-bar">
+                  <div class="mini-bar-fill ${srv.isChannel ? 'fill-channel' : ''}" style="width:${pct}%"></div>
+                </div>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <a href="${ManiaText.escapeHtml(srv.joinUrl)}" class="btn btn-sm ${srv.isChannel ? 'btn-primary' : ''}" title="Launch in ManiaPlanet">
+                Join
+              </a>
+            </td>
+          </tr>
+        `;
+      }
+
+      tbody.innerHTML = html;
       return;
     }
 
-    let html = '';
-    for (const p of filteredPlayers) {
-      const nickDisplay = formatServerOrPlayerName(p.cleanNickname, p.coloredNicknameHtml, p.rawNickname);
-      const badgeClass = getCategoryBadgeClass(p.serverCategory);
+    // Case 2: Live ShootMania Title Packs player counts from maniaplanet.com
+    if (state.dataMode === 'titles') {
+      if (tabLabelEl) tabLabelEl.textContent = 'Live ShootMania Titles';
+      if (noticeEl) {
+        noticeEl.innerHTML = `
+          <div class="notice-banner">
+            <strong>Live ShootMania Title Pack Counts (from maniaplanet.com)</strong>
+            <span>
+              Showing real live ShootMania online player counts per Title Pack fetched from <code>maniaplanet.com</code>.
+            </span>
+          </div>
+        `;
+      }
+      if (thead) {
+        thead.innerHTML = `
+          <tr>
+            <th>ShootMania Title Pack</th>
+            <th>Mode / Category</th>
+            <th>Author</th>
+            <th>Title ID</th>
+            <th>Online Players</th>
+            <th style="text-align:right;">Action</th>
+          </tr>
+        `;
+      }
 
-      html += `
-        <div class="player-card">
-          <div class="player-card-top">
-            <div>
-              <div class="player-nickname">${nickDisplay}</div>
-              <div class="player-login">login: ${ManiaText.escapeHtml(p.login)} • ${ManiaText.escapeHtml(p.zone)}</div>
-            </div>
-            <span class="player-role-badge ${p.isSpectator ? 'is-spec' : ''}">
-              ${p.isSpectator ? 'Spectator' : 'Playing'}
-            </span>
-          </div>
-          <div class="player-card-server">
-            <div class="player-server-info">
-              <span class="player-server-name" title="${ManiaText.escapeHtml(p.serverCleanName)}">
-                ${p.isChannelPlayer ? '★ ' : ''}${ManiaText.escapeHtml(p.serverCleanName)}
-              </span>
-              <span class="server-raw-sub">${ManiaText.escapeHtml(p.serverTitle)}</span>
-            </div>
-            <span class="mode-badge ${badgeClass}" style="font-size:0.72rem;padding:0.15rem 0.45rem;">
-              ${ManiaText.escapeHtml(p.serverGamemode)}
-            </span>
-          </div>
-        </div>
-      `;
+      const filtered = getFilteredAndSortedTitles();
+      if (countBadge) countBadge.textContent = filtered.length;
+
+      if (filtered.length === 0) {
+        tbody.innerHTML = `
+          <tr>
+            <td colspan="6" class="empty-state">
+              No ShootMania title packs match your current filter criteria.
+            </td>
+          </tr>
+        `;
+        return;
+      }
+
+      const maxPlayers = Math.max(1, ...filtered.map((t) => t.onlinePlayers));
+      let html = '';
+      for (const t of filtered) {
+        const displayName = formatServerOrPlayerName(t.cleanName, t.coloredNameHtml, t.rawName);
+        const badgeClass = getCategoryBadgeClass(t.category);
+        const pct = Math.min(100, Math.round((t.onlinePlayers / maxPlayers) * 100));
+        const catLabel = t.category.charAt(0).toUpperCase() + t.category.slice(1);
+
+        html += `
+          <tr>
+            <td>
+              <div class="server-name-cell">
+                <div class="server-title-line">
+                  <span>${displayName}</span>
+                </div>
+                <div class="server-raw-sub">
+                  <a href="${ManiaText.escapeHtml(t.webUrl)}" target="_blank" rel="noopener noreferrer" style="text-decoration:underline;">
+                    maniaplanet.com/titles/${ManiaText.escapeHtml(t.titleId)}
+                  </a>
+                </div>
+              </div>
+            </td>
+            <td>
+              <span class="mode-badge ${badgeClass}">${ManiaText.escapeHtml(catLabel)}</span>
+            </td>
+            <td>
+              <span style="font-size:0.84rem;color:var(--text-secondary);">${ManiaText.escapeHtml(t.author)}</span>
+            </td>
+            <td>
+              <span class="mono" style="font-size:0.78rem;color:var(--text-muted);">${ManiaText.escapeHtml(t.titleId)}</span>
+            </td>
+            <td>
+              <div class="player-count-wrap">
+                <div class="player-count-nums">
+                  <span class="player-active-num ${t.onlinePlayers > 0 ? 'has-players' : ''}">${t.onlinePlayers}</span>
+                  <span class="player-max-num">online</span>
+                </div>
+                <div class="mini-bar">
+                  <div class="mini-bar-fill" style="width:${pct}%"></div>
+                </div>
+              </div>
+            </td>
+            <td style="text-align:right;">
+              <a href="${ManiaText.escapeHtml(t.joinUrl)}" class="btn btn-sm" title="Launch Title Pack in ManiaPlanet">
+                Launch
+              </a>
+            </td>
+          </tr>
+        `;
+      }
+
+      tbody.innerHTML = html;
+      return;
     }
 
-    grid.innerHTML = html;
+    // Case 3: Loading or Offline/Error (zero fake entries)
+    if (tabLabelEl) tabLabelEl.textContent = 'Live Activity';
+    if (countBadge) countBadge.textContent = '0';
+
+    if (noticeEl) {
+      noticeEl.innerHTML = state.dataMode === 'error'
+        ? `
+          <div class="notice-banner notice-warning">
+            <strong>Unable to reach live ManiaPlanet data</strong>
+            <span>
+              Could not reach <code>prod.live.maniaplanet.com</code> or <code>maniaplanet.com</code> right now (a browser extension, adblocker, or network policy may be blocking the request).
+              Click <strong>Refresh</strong> to retry.
+            </span>
+          </div>
+        `
+        : '';
+    }
+
+    tbody.innerHTML = `
+      <tr>
+        <td colspan="6" class="empty-state">
+          ${state.dataMode === 'error'
+            ? 'No live ShootMania data loaded. Click Refresh to retry.'
+            : 'Syncing live ShootMania data from ManiaPlanet...'}
+        </td>
+      </tr>
+    `;
   }
 
   function renderNameDictionaryView() {
@@ -1415,7 +1521,6 @@
     renderSummaryKPIs();
     renderChannelSpotlight();
     renderServersTable();
-    renderOnlinePlayersView();
   }
 
   /* ==========================================================================
@@ -1439,7 +1544,8 @@
     if (state.rawServers.length > 0) {
       normalizeServerList(state.rawServers);
       renderServersTable();
-      renderOnlinePlayersView();
+    } else if (state.liveTitles.length > 0) {
+      renderServersTable();
     }
   }
 
@@ -1471,7 +1577,7 @@
       });
     }
 
-    // Main View Tabs (Servers / Online Players / Name Parser Reference)
+    // Main View Tabs (Live Activity / Name Parser Reference)
     const tabButtons = document.querySelectorAll('.view-tab');
     tabButtons.forEach((btn) => {
       btn.addEventListener('click', () => {
@@ -1490,7 +1596,6 @@
       searchInput.addEventListener('input', (e) => {
         state.searchQuery = e.target.value;
         renderServersTable();
-        renderOnlinePlayersView();
       });
     }
 
@@ -1500,7 +1605,6 @@
       catSelect.addEventListener('change', (e) => {
         state.categoryFilter = e.target.value;
         renderServersTable();
-        renderOnlinePlayersView();
       });
     }
 
@@ -1519,11 +1623,10 @@
       fmtSelect.addEventListener('change', (e) => {
         state.nameFormat = e.target.value;
         renderServersTable();
-        renderOnlinePlayersView();
       });
     }
 
-    // Hide empty servers toggle
+    // Hide empty toggle
     const hideEmptyCheckbox = document.getElementById('filter-hide-empty');
     if (hideEmptyCheckbox) {
       hideEmptyCheckbox.addEventListener('change', (e) => {
@@ -1557,63 +1660,6 @@
     if (testerTitleInput) testerTitleInput.addEventListener('input', runTester);
     if (testerScriptInput) testerScriptInput.addEventListener('input', runTester);
     runTester();
-
-    // API Settings & Custom JSON Modal
-    const modal = document.getElementById('api-modal');
-    const openModalBtns = [
-      document.getElementById('btn-api-settings'),
-      document.getElementById('status-pill-btn')
-    ];
-    const closeModalBtn = document.getElementById('btn-close-modal');
-
-    openModalBtns.forEach((b) => {
-      if (b) {
-        b.addEventListener('click', () => {
-          document.getElementById('input-api-url').value = state.settings.endpointUrl;
-          document.getElementById('input-cors-proxy').value = state.settings.corsProxy;
-          document.getElementById('input-bearer-token').value = state.settings.bearerToken;
-          modal.classList.add('open');
-        });
-      }
-    });
-
-    if (closeModalBtn && modal) {
-      closeModalBtn.addEventListener('click', () => modal.classList.remove('open'));
-      modal.addEventListener('click', (e) => {
-        if (e.target === modal) modal.classList.remove('open');
-      });
-    }
-
-    const btnSaveApi = document.getElementById('btn-save-api');
-    if (btnSaveApi) {
-      btnSaveApi.addEventListener('click', () => {
-        state.settings.endpointUrl = document.getElementById('input-api-url').value.trim();
-        state.settings.corsProxy = document.getElementById('input-cors-proxy').value;
-        state.settings.bearerToken = document.getElementById('input-bearer-token').value.trim();
-        saveSettings();
-
-        const rawJsonInput = document.getElementById('input-custom-json').value.trim();
-        if (rawJsonInput) {
-          try {
-            const parsed = JSON.parse(rawJsonInput);
-            const arr = Array.isArray(parsed) ? parsed : (parsed.servers || parsed.items || [parsed]);
-            state.rawServers = arr;
-            state.apiStatus = 'custom_json';
-            state.apiStatusLabel = 'Custom API JSON';
-            normalizeServerList(state.rawServers);
-            renderAll();
-            modal.classList.remove('open');
-            return;
-          } catch (err) {
-            alert('Invalid JSON format in Custom Payload box: ' + err.message);
-            return;
-          }
-        }
-
-        modal.classList.remove('open');
-        fetchManiaPlanetData();
-      });
-    }
   }
 
   /* ==========================================================================
@@ -1624,37 +1670,24 @@
     renderNameDictionaryView();
     initEvents();
 
-    // Load initial ShootMania data immediately for zero-latency startup
-    state.rawServers = buildDefaultShootManiaServers();
-    normalizeServerList(state.rawServers);
+    // Render clean loading state (zero fake data), then fetch live data immediately
     renderAll();
-
-    // Attempt live API / proxy fetch in background
     fetchManiaPlanetData();
 
-    // Periodic background refresh (default 60s)
-    const refreshIntervalMs = Math.max(15, state.settings.autoRefreshSec || 60) * 1000;
+    // Periodic background refresh (60s)
     setInterval(() => {
-      if (state.apiStatus !== 'custom_json') {
-        fetchManiaPlanetData();
-      }
-    }, refreshIntervalMs);
+      fetchManiaPlanetData();
+    }, AUTO_REFRESH_SEC * 1000);
 
-    // 1-second ticker for the hourly ShootMania Live Channel countdown & rotation
+    // 1-second ticker for the hourly ShootMania Live Channel countdown & UTC slot refresh
     let lastUtcHour = new Date().getUTCHours();
     setInterval(() => {
       const now = new Date();
       const currentHour = now.getUTCHours();
 
-      // If the hour just rolled over, rotate the ShootMania Live Channel program automatically
       if (currentHour !== lastUtcHour) {
         lastUtcHour = currentHour;
-        if (state.apiStatus === 'live_sync') {
-          state.rawServers = buildDefaultShootManiaServers();
-          normalizeServerList(state.rawServers);
-          renderServersTable();
-          renderOnlinePlayersView();
-        }
+        fetchManiaPlanetData();
       }
 
       const rot = getChannelRotationState(now);
