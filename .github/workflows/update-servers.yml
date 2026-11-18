@@ -1,0 +1,61 @@
+name: Update ShootMania Servers
+
+on:
+  schedule:
+    - cron: '*/5 * * * *'
+  workflow_dispatch:
+
+permissions:
+  contents: write
+
+jobs:
+  fetch-servers:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout repository
+        uses: actions/checkout@v4
+
+      - name: Fetch ShootMania servers from ManiaPlanet WebServices
+        env:
+          MP_WS_USER: ${{ secrets.MP_WS_USER }}
+          MP_WS_PASS: ${{ secrets.MP_WS_PASS }}
+        run: |
+          API_URL="https://www.maniaplanet.com/webservices/servers?environment=Storm&offset=0&length=100"
+          if [ -n "$MP_WS_USER" ] && [ -n "$MP_WS_PASS" ]; then
+            curl -sfL --max-time 15 -u "${MP_WS_USER}:${MP_WS_PASS}" \
+              -H "Accept: application/json" \
+              "$API_URL" -o servers.tmp.json || true
+          else
+            curl -sfL --max-time 15 \
+              -H "Accept: application/json" \
+              "$API_URL" -o servers.tmp.json || true
+          fi
+
+          if [ ! -s servers.tmp.json ]; then
+            echo "Empty response from ManiaPlanet WebServices; skipping update."
+            rm -f servers.tmp.json
+            exit 0
+          fi
+
+          if jq -e 'type == "array" or (.servers? | type == "array") or (.items? | type == "array")' servers.tmp.json > /dev/null 2>&1; then
+            mv servers.tmp.json servers.json
+          else
+            echo "Response was not a valid server list JSON; skipping update."
+            rm -f servers.tmp.json
+            exit 0
+          fi
+
+      - name: Commit updated servers.json
+        run: |
+          if [ ! -f servers.json ]; then
+            exit 0
+          fi
+          git config user.name "github-actions[bot]"
+          git config user.email "41898282+github-actions[bot]@users.noreply.github.com"
+          git add servers.json
+          if git diff --cached --quiet; then
+            echo "No changes to servers.json"
+            exit 0
+          fi
+          git commit -m "Update ShootMania servers.json"
+          git push
